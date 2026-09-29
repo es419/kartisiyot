@@ -1,0 +1,147 @@
+import { useState } from 'react'
+import { Link, useNavigate, useParams } from 'react-router-dom'
+import { getProgress, getSet, listCards, updateCard } from '../api'
+import { useLoad } from '../hooks'
+import { ErrorBox, Loading, useToast } from '../components/ui'
+import Rich from '../components/Rich'
+import { clozeView, studyView } from '../lib/cloze'
+import { speak } from '../lib/tts'
+import type { Card, Progress } from '../types'
+
+export default function SetPage() {
+  const { id } = useParams()
+  const nav = useNavigate()
+  const [starredOnly, setStarredOnly] = useState(false)
+  const toast = useToast()
+  const { data, error, loading, setData } = useLoad(async () => {
+    const [set, cards, progress] = await Promise.all([
+      getSet(id!),
+      listCards(id!),
+      getProgress(id!).catch(() => ({} as Record<string, Progress>))
+    ])
+    return { set, cards, progress }
+  }, [id])
+
+  if (loading && !data) return <div className="page"><Loading /></div>
+  if (error && !data) return <div className="page"><ErrorBox msg={error} /></div>
+  if (!data) return null
+
+  const { set, progress } = data
+  const valid = studyView(data.cards)
+  const starredCount = valid.filter((c) => c.starred).length
+  const q = starredOnly ? '?starred=1' : ''
+
+  const now = Date.now()
+  const unseen = valid.filter((c) => !progress[c.id]).length
+  const dueNow = valid.filter((c) => progress[c.id] && new Date(progress[c.id].due_at).getTime() <= now).length
+  const solid = valid.filter((c) => (progress[c.id]?.box ?? 0) >= 3).length
+  const left = set.exam_date ? Math.ceil((new Date(set.exam_date + 'T00:00:00').getTime() - now) / 864e5) : null
+
+  async function toggleStar(c: Card) {
+    setData({ ...data!, cards: data!.cards.map((x) => (x.id === c.id ? { ...x, starred: !x.starred } : x)) })
+    await updateCard(c.id, { starred: !c.starred }).catch(() => {})
+  }
+
+  const shareUrl = `${location.origin}${location.pathname}#/s/${set.id}`
+
+  const modes = [
+    { to: 'flashcards', g: '🃏', t: 'כרטיסיות', d: 'דפדוף והיפוך', min: 1 },
+    { to: 'learn', g: '🧠', t: 'למידה', d: 'חזרה מרווחת חכמה', min: 1 },
+    { to: 'write', g: '✍️', t: 'כתיבה', d: 'הקלדת התשובות', min: 1 },
+    { to: 'test', g: '📝', t: 'מבחן', d: 'נוצר אוטומטית', min: 1 },
+    { to: 'match', g: '🧩', t: 'התאמה', d: 'מול השעון', min: 2 },
+    { to: 'gravity', g: '☄️', t: 'כבידה', d: 'הקלד לפני שיפול', min: 3 },
+    { to: 'listen', g: '🎧', t: 'האזנה', d: 'הקראה רציפה', min: 1 }
+  ]
+
+  return (
+    <div className="page study">
+      <div className="row spread">
+        <Link to="/" className="btn ghost sm">→ ספרייה</Link>
+        <Link to={`/set/${set.id}/edit`} className="btn sm">עריכה</Link>
+      </div>
+
+      <h1 className="mt-s">{set.title}</h1>
+      {set.description && <p className="muted mt-s">{set.description}</p>}
+      <p className="muted small mt-s">{valid.length} כרטיסיות{valid.length > 0 && ` · ${solid} מוכרות היטב`}</p>
+
+      {left !== null && (
+        <div className="entry plan mt">
+          {left > 0 ? (
+            <>
+              <b>המבחן בעוד {left} {left === 1 ? 'יום' : 'ימים'}</b>
+              <div className="small mt-s">
+                {unseen > 0 ? <>כדאי ללמוד היום <b>{Math.ceil(unseen / left)}</b> כרטיסיות חדשות (נשארו {unseen} שלא נגעת בהן). </> : <>כל הכרטיסיות כבר נלמדו לפחות פעם אחת. </>}
+                {dueNow > 0 && <>יש <b>{dueNow}</b> לחזרה עכשיו.</>}
+              </div>
+            </>
+          ) : left === 0 ? <b>המבחן היום. {dueNow > 0 ? `נשארו ${dueNow} כרטיסיות לחזרה אחרונה.` : 'אין כרטיסיות שמחכות לחזרה.'}</b> : <span className="muted">תאריך המבחן עבר. אפשר לעדכן אותו בעריכה.</span>}
+        </div>
+      )}
+
+      {valid.length === 0 ? (
+        <div className="empty mt">
+          הסט ריק.<br />
+          <Link to={`/set/${set.id}/edit`} className="btn primary mt-s">הוסף כרטיסיות</Link>
+        </div>
+      ) : (
+        <>
+          <div className="row mt wrap">
+            <button className={'chip' + (!starredOnly ? ' on' : '')} onClick={() => setStarredOnly(false)}>כל הכרטיסיות</button>
+            <button className={'chip' + (starredOnly ? ' on' : '')} onClick={() => setStarredOnly(true)} disabled={starredCount === 0}>
+              ★ מסומנות ({starredCount})
+            </button>
+          </div>
+          <div className="modes mt-s">
+            {modes.map((m) => {
+              const n = starredOnly ? starredCount : valid.length
+              const ok = n >= m.min
+              return (
+                <a
+                  key={m.to}
+                  className="mode"
+                  href={ok ? `#/set/${set.id}/${m.to}${q}` : undefined}
+                  style={ok ? undefined : { opacity: 0.45, pointerEvents: 'none' }}
+                  onClick={(e) => { if (!ok) e.preventDefault() }}
+                >
+                  <span className="g" aria-hidden>{m.g}</span>
+                  <b>{m.t}</b>
+                  <span>{ok ? m.d : `דורש ${m.min}+ כרטיסיות`}</span>
+                </a>
+              )
+            })}
+          </div>
+        </>
+      )}
+
+      {set.is_public && (
+        <div className="row mt">
+          <input className="input" readOnly value={shareUrl} dir="ltr" onFocus={(e) => e.target.select()} />
+          <button className="btn" onClick={() => { navigator.clipboard?.writeText(shareUrl); toast.show('הקישור הועתק') }}>העתק</button>
+        </div>
+      )}
+
+      <h2 className="mt">הכרטיסיות</h2>
+      <div className="col mt-s">
+        {data.cards.map((raw) => {
+          const c = clozeView(raw)
+          return (
+            <div key={c.id} className="entry">
+              <div className="row">
+                <div className="grow">
+                  <b style={{ whiteSpace: 'pre-wrap' }} dir="auto"><Rich text={c.term || '—'} /></b>
+                  <div className="muted" style={{ whiteSpace: 'pre-wrap' }} dir="auto"><Rich text={c.definition || '—'} /></div>
+                </div>
+                {c.image_url && <img className="thumb" src={c.image_url} alt="" />}
+                <button className="icon-btn" aria-label="השמע" onClick={() => speak(c.full ?? c.term, set.term_lang)}>🔊</button>
+                <button className={'icon-btn' + (c.starred ? ' on' : '')} aria-label="סמן בכוכב" onClick={() => toggleStar(raw)}>{c.starred ? '★' : '☆'}</button>
+              </div>
+            </div>
+          )
+        })}
+      </div>
+      <button className="btn ghost mt" onClick={() => nav('/')}>סיום</button>
+      {toast.node}
+    </div>
+  )
+}
