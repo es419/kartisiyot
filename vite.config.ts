@@ -2,7 +2,11 @@ import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
 
+// באתר GitHub Pages הכתובת היא /שם-הריפו/, לכן הבילד מקבל VITE_BASE. מקומית זה '/'
+const base = process.env.VITE_BASE || '/'
+
 export default defineConfig({
+  base,
   plugins: [
     react(),
     VitePWA({
@@ -14,7 +18,8 @@ export default defineConfig({
         description: 'כרטיסיות לימוד, חזרה מרווחת ויומן למידה',
         lang: 'he',
         dir: 'rtl',
-        start_url: '/',
+        start_url: base,
+        scope: base,
         display: 'standalone',
         background_color: '#F3F6FB',
         theme_color: '#F3F6FB',
@@ -26,7 +31,7 @@ export default defineConfig({
       },
       workbox: {
         globPatterns: ['**/*.{js,css,html,svg,png,woff2}'],
-        navigateFallback: '/index.html',
+        navigateFallback: base + 'index.html',
         runtimeCaching: [
           {
             urlPattern: /^https:\/\/fonts\.(googleapis|gstatic)\.com\/.*/i,
