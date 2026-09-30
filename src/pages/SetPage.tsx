@@ -1,16 +1,28 @@
 import { useState } from 'react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { Link, useParams } from 'react-router-dom'
 import { getProgress, getSet, listCards, updateCard } from '../api'
 import { useLoad } from '../hooks'
 import { ErrorBox, Loading, useToast } from '../components/ui'
 import Rich from '../components/Rich'
+import Icon from '../components/Icon'
+import TopBar from '../components/TopBar'
 import { clozeView, studyView } from '../lib/cloze'
 import { speak } from '../lib/tts'
 import type { Card, Progress } from '../types'
 
+function PreviewCard({ c }: { c: Card }) {
+  const [back, setBack] = useState(false)
+  return (
+    <div className="pcard" dir="auto" role="button" aria-label="הפוך כרטיסייה" onClick={() => setBack(!back)}>
+      <span className="tag">{back ? 'הגדרה' : 'מושג'}</span>
+      {!back && c.image_url && <img src={c.image_url} alt="" />}
+      <div><Rich text={back ? c.definition : c.term} /></div>
+    </div>
+  )
+}
+
 export default function SetPage() {
   const { id } = useParams()
-  const nav = useNavigate()
   const [starredOnly, setStarredOnly] = useState(false)
   const toast = useToast()
   const { data, error, loading, setData } = useLoad(async () => {
@@ -22,8 +34,8 @@ export default function SetPage() {
     return { set, cards, progress }
   }, [id])
 
-  if (loading && !data) return <div className="page"><Loading /></div>
-  if (error && !data) return <div className="page"><ErrorBox msg={error} /></div>
+  if (loading && !data) return <div className="page"><TopBar back="/" /><Loading /></div>
+  if (error && !data) return <div className="page"><TopBar back="/" /><ErrorBox msg={error} /></div>
   if (!data) return null
 
   const { set, progress } = data
@@ -45,28 +57,40 @@ export default function SetPage() {
   const shareUrl = `${location.origin}${location.pathname}#/s/${set.id}`
 
   const modes = [
-    { to: 'flashcards', g: '🃏', t: 'כרטיסיות', d: 'דפדוף והיפוך', min: 1 },
-    { to: 'learn', g: '🧠', t: 'למידה', d: 'חזרה מרווחת חכמה', min: 1 },
-    { to: 'write', g: '✍️', t: 'כתיבה', d: 'הקלדת התשובות', min: 1 },
-    { to: 'test', g: '📝', t: 'מבחן', d: 'נוצר אוטומטית', min: 1 },
-    { to: 'match', g: '🧩', t: 'התאמה', d: 'מול השעון', min: 2 },
-    { to: 'gravity', g: '☄️', t: 'כבידה', d: 'הקלד לפני שיפול', min: 3 },
-    { to: 'listen', g: '🎧', t: 'האזנה', d: 'הקראה רציפה', min: 1 }
+    { to: 'flashcards', icon: 'cards', t: 'כרטיסיות', d: 'דפדוף והיפוך', min: 1 },
+    { to: 'learn', icon: 'learn', t: 'למידה', d: 'חזרה מרווחת חכמה', min: 1 },
+    { to: 'write', icon: 'write', t: 'כתיבה', d: 'הקלדת התשובות', min: 1 },
+    { to: 'test', icon: 'test', t: 'מבחן', d: 'נוצר אוטומטית מהסט', min: 1 },
+    { to: 'match', icon: 'match', t: 'התאמה', d: 'מול השעון', min: 2 },
+    { to: 'gravity', icon: 'gravity', t: 'כבידה', d: 'הקלד לפני שיפול', min: 3 },
+    { to: 'listen', icon: 'listen', t: 'האזנה', d: 'הקראה רציפה', min: 1 }
   ]
+  const n = starredOnly ? starredCount : valid.length
 
   return (
     <div className="page study">
-      <div className="row spread">
-        <Link to="/" className="btn ghost sm">→ ספרייה</Link>
-        <Link to={`/set/${set.id}/edit`} className="btn sm">עריכה</Link>
+      <TopBar
+        back="/"
+        right={<Link to={`/set/${set.id}/edit`} className="icon-btn" aria-label="עריכה"><Icon name="edit" /></Link>}
+      />
+
+      <h1>{set.title}</h1>
+      {set.description && <p className="muted mt-s">{set.description}</p>}
+      <div className="row wrap mt-s">
+        <span className="badge">{valid.length} כרטיסיות</span>
+        {valid.length > 0 && <span className="badge good">{solid} מוכרות היטב</span>}
+        {set.is_public && <span className="badge primary">משותף</span>}
+        {left !== null && left >= 0 && <span className="badge mark">{left === 0 ? 'מבחן היום' : `מבחן בעוד ${left} ימים`}</span>}
       </div>
 
-      <h1 className="mt-s">{set.title}</h1>
-      {set.description && <p className="muted mt-s">{set.description}</p>}
-      <p className="muted small mt-s">{valid.length} כרטיסיות{valid.length > 0 && ` · ${solid} מוכרות היטב`}</p>
+      {valid.length > 0 && (
+        <div className="carousel mt">
+          {valid.slice(0, 30).map((c) => <PreviewCard key={c.id} c={c} />)}
+        </div>
+      )}
 
       {left !== null && (
-        <div className="entry plan mt">
+        <div className="entry plan">
           {left > 0 ? (
             <>
               <b>המבחן בעוד {left} {left === 1 ? 'יום' : 'ימים'}</b>
@@ -75,7 +99,11 @@ export default function SetPage() {
                 {dueNow > 0 && <>יש <b>{dueNow}</b> לחזרה עכשיו.</>}
               </div>
             </>
-          ) : left === 0 ? <b>המבחן היום. {dueNow > 0 ? `נשארו ${dueNow} כרטיסיות לחזרה אחרונה.` : 'אין כרטיסיות שמחכות לחזרה.'}</b> : <span className="muted">תאריך המבחן עבר. אפשר לעדכן אותו בעריכה.</span>}
+          ) : left === 0 ? (
+            <b>המבחן היום. {dueNow > 0 ? `נשארו ${dueNow} כרטיסיות לחזרה אחרונה.` : 'אין כרטיסיות שמחכות לחזרה.'}</b>
+          ) : (
+            <span className="muted">תאריך המבחן עבר. אפשר לעדכן אותו בעריכה.</span>
+          )}
         </div>
       )}
 
@@ -87,26 +115,18 @@ export default function SetPage() {
       ) : (
         <>
           <div className="row mt wrap">
-            <button className={'chip' + (!starredOnly ? ' on' : '')} onClick={() => setStarredOnly(false)}>כל הכרטיסיות</button>
-            <button className={'chip' + (starredOnly ? ' on' : '')} onClick={() => setStarredOnly(true)} disabled={starredCount === 0}>
-              ★ מסומנות ({starredCount})
-            </button>
+            <h2 className="grow">למידה</h2>
+            <button className={'chip' + (!starredOnly ? ' on' : '')} onClick={() => setStarredOnly(false)}>הכול</button>
+            <button className={'chip' + (starredOnly ? ' on' : '')} onClick={() => setStarredOnly(true)} disabled={starredCount === 0}>★ מסומנות ({starredCount})</button>
           </div>
-          <div className="modes mt-s">
+          <div className="list mt-s">
             {modes.map((m) => {
-              const n = starredOnly ? starredCount : valid.length
               const ok = n >= m.min
               return (
-                <a
-                  key={m.to}
-                  className="mode"
-                  href={ok ? `#/set/${set.id}/${m.to}${q}` : undefined}
-                  style={ok ? undefined : { opacity: 0.45, pointerEvents: 'none' }}
-                  onClick={(e) => { if (!ok) e.preventDefault() }}
-                >
-                  <span className="g" aria-hidden>{m.g}</span>
-                  <b>{m.t}</b>
-                  <span>{ok ? m.d : `דורש ${m.min}+ כרטיסיות`}</span>
+                <a key={m.to} className={'list-row' + (ok ? '' : ' disabled')} href={ok ? `#/set/${set.id}/${m.to}${q}` : undefined}>
+                  <span className="ico"><Icon name={m.icon} /></span>
+                  <span className="tx"><b>{m.t}</b><span>{ok ? m.d : `דורש ${m.min}+ כרטיסיות`}</span></span>
+                  <span className="chev"><Icon name="chev" size={20} /></span>
                 </a>
               )
             })}
@@ -121,26 +141,23 @@ export default function SetPage() {
         </div>
       )}
 
-      <h2 className="mt">הכרטיסיות</h2>
-      <div className="col mt-s">
+      <h2 className="mt">כרטיסיות בסט ({data.cards.length})</h2>
+      <div className="list mt-s">
         {data.cards.map((raw) => {
           const c = clozeView(raw)
           return (
-            <div key={c.id} className="entry">
-              <div className="row">
-                <div className="grow">
-                  <b style={{ whiteSpace: 'pre-wrap' }} dir="auto"><Rich text={c.term || '—'} /></b>
-                  <div className="muted" style={{ whiteSpace: 'pre-wrap' }} dir="auto"><Rich text={c.definition || '—'} /></div>
-                </div>
-                {c.image_url && <img className="thumb" src={c.image_url} alt="" />}
-                <button className="icon-btn" aria-label="השמע" onClick={() => speak(c.full ?? c.term, set.term_lang)}>🔊</button>
-                <button className={'icon-btn' + (c.starred ? ' on' : '')} aria-label="סמן בכוכב" onClick={() => toggleStar(raw)}>{c.starred ? '★' : '☆'}</button>
+            <div key={c.id} className="list-row term">
+              <div className="tx">
+                <b dir="auto"><Rich text={c.term || '—'} /></b>
+                <span className="muted" dir="auto"><Rich text={c.definition || '—'} /></span>
               </div>
+              {c.image_url && <img className="thumb" src={c.image_url} alt="" style={{ width: 48, height: 48 }} />}
+              <button className="icon-btn" aria-label="השמע" onClick={() => speak(c.full ?? c.term, set.term_lang)}><Icon name="speaker" size={20} /></button>
+              <button className={'icon-btn' + (c.starred ? ' on' : '')} aria-label="סמן בכוכב" onClick={() => toggleStar(raw)}><Icon name="star" size={22} fill={c.starred} /></button>
             </div>
           )
         })}
       </div>
-      <button className="btn ghost mt" onClick={() => nav('/')}>סיום</button>
       {toast.node}
     </div>
   )

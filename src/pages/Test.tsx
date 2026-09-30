@@ -6,6 +6,7 @@ import { ErrorBox, Loading } from '../components/ui'
 import { nextProgress } from '../lib/srs'
 import { grade, shuffle } from '../lib/text'
 import Rich from '../components/Rich'
+import TopBar from '../components/TopBar'
 import type { Card, Progress, SetRow } from '../types'
 
 type Cfg = { count: number; mc: boolean; tf: boolean; write: boolean; match: boolean }
@@ -94,8 +95,7 @@ function TestRun({ set, cards, progress }: { set: SetRow; cards: Card[]; progres
     const toggle = (k: 'mc' | 'tf' | 'write' | 'match') => setCfg({ ...cfg, [k]: !cfg[k] })
     return (
       <div className="page study">
-        <Link to={`/set/${set.id}`} className="btn ghost sm">✕ יציאה</Link>
-        <h1 className="mt-s">מבחן</h1>
+        <TopBar close={`/set/${set.id}`} title="הגדרות מבחן" />
         <div className="col mt">
           <label className="field">מספר שאלות (עד {cards.length})
             <input className="input" type="number" min={1} max={cards.length} value={cfg.count} onChange={(e) => setCfg({ ...cfg, count: Math.max(1, Math.min(cards.length, Number(e.target.value) || 1)) })} />
@@ -118,14 +118,10 @@ function TestRun({ set, cards, progress }: { set: SetRow; cards: Card[]; progres
 
   return (
     <div className="page study">
-      <div className="row spread">
-        {done ? <Link to={`/set/${set.id}`} className="btn ghost sm">→ לסט</Link> : <Link to={`/set/${set.id}`} className="btn ghost sm">✕ יציאה</Link>}
-        <b>מבחן</b>
-        <span />
-      </div>
+      <TopBar close={`/set/${set.id}`} title={done ? `תוצאות: ${correct}/${total}` : 'מבחן'} />
 
       {done && (
-        <div className="index-card center mt" style={{ padding: '58px 16px 18px' }}>
+        <div className="index-card center mt" style={{ padding: '24px 18px' }}>
           <h1>{Math.round((correct / Math.max(1, total)) * 100)}%</h1>
           <p className="muted">{correct} מתוך {total} נכונות</p>
           <div className="row mt-s" style={{ justifyContent: 'center' }}>

@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Logo } from './Logo'
+import Icon from './Icon'
 
 export default function InstallHint() {
   const [hide, setHide] = useState(() => localStorage.getItem('fc:hint') === '1')
@@ -14,7 +15,7 @@ export default function InstallHint() {
         <b>הוסף למסך הבית</b>
         <div className="muted">לחץ על כפתור השיתוף ב-Safari ואז "הוסף למסך הבית". ככה זה נפתח כמו אפליקציה.</div>
       </div>
-      <button className="icon-btn" aria-label="סגור" onClick={() => { localStorage.setItem('fc:hint', '1'); setHide(true) }}>✕</button>
+      <button className="icon-btn" aria-label="סגור" onClick={() => { localStorage.setItem('fc:hint', '1'); setHide(true) }}><Icon name="close" size={20} /></button>
     </div>
   )
 }

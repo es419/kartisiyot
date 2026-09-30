@@ -5,10 +5,10 @@ export default function PageHeader({ title, children }: { title: string; childre
   return (
     <div className="row spread page-head">
       <div className="row">
-        <Logo size={34} />
+        <Logo size={32} />
         <h1>{title}</h1>
       </div>
-      <div className="row">{children}</div>
+      <div className="row" style={{ gap: 2 }}>{children}</div>
     </div>
   )
 }

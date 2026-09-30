@@ -1,4 +1,5 @@
-import { HashRouter, Routes, Route, Outlet, NavLink } from 'react-router-dom'
+import { HashRouter, Routes, Route, Outlet } from 'react-router-dom'
+import TabBar from './components/TabBar'
 import { AuthProvider, useAuth } from './auth'
 import AuthPage from './pages/AuthPage'
 import Library from './pages/Library'
@@ -24,23 +25,10 @@ function Protected() {
 }
 
 function Layout() {
-  const tabs = [
-    { to: '/', icon: '🗂️', label: 'ספרייה', end: true },
-    { to: '/review', icon: '🔁', label: 'חזרה' },
-    { to: '/journal', icon: '📓', label: 'יומן' },
-    { to: '/stats', icon: '📊', label: 'התקדמות' }
-  ]
   return (
     <>
       <Outlet />
-      <nav className="bottom-nav" aria-label="ניווט ראשי">
-        {tabs.map((t) => (
-          <NavLink key={t.to} to={t.to} end={t.end} className={({ isActive }) => (isActive ? 'active' : '')}>
-            <span className="i" aria-hidden>{t.icon}</span>
-            {t.label}
-          </NavLink>
-        ))}
-      </nav>
+      <TabBar />
     </>
   )
 }

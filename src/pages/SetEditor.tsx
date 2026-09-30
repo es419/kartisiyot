@@ -7,6 +7,8 @@ import {
 import { useLoad } from '../hooks'
 import { ErrorBox, Loading, Modal, useToast } from '../components/ui'
 import Rich from '../components/Rich'
+import Icon from '../components/Icon'
+import TopBar from '../components/TopBar'
 import { LANGS } from '../lib/tts'
 import { resizeImage } from '../lib/image'
 import { isCloze } from '../lib/cloze'
@@ -87,15 +89,15 @@ function CardRow({ card, first, last, onDelete, onUp, onDown, onDuplicate, onMov
       <div className="tools">
         <input ref={file} type="file" accept="image/*" hidden onChange={(e) => pick(e.target.files?.[0])} />
         {img && <img className="thumb" src={img} alt="" style={{ width: 40, height: 40 }} />}
-        <button className="btn sm" disabled={busy} onClick={() => file.current?.click()}>{busy ? 'מעלה…' : img ? 'החלף תמונה' : '🖼️ תמונה'}</button>
+        <button className="btn sm" disabled={busy} onClick={() => file.current?.click()}><Icon name="image" size={18} /> {busy ? 'מעלה…' : img ? 'החלף' : 'תמונה'}</button>
         {img && <button className="btn ghost sm" onClick={() => { setImg(null); save({ image_url: null }) }}>הסר</button>}
         <button className="btn sm" onClick={makeHole}>[ ] חור</button>
         <span className="grow" />
-        <button className="icon-btn" aria-label="הזז למעלה" disabled={first} onClick={onUp}>↑</button>
-        <button className="icon-btn" aria-label="הזז למטה" disabled={last} onClick={onDown}>↓</button>
-        <button className="icon-btn" aria-label="שכפל" onClick={onDuplicate}>⧉</button>
-        <button className="icon-btn" aria-label="העבר לסט אחר" onClick={onMove}>➜</button>
-        <button className="icon-btn" aria-label="מחק" onClick={onDelete}>🗑</button>
+        <button className="icon-btn" aria-label="הזז למעלה" disabled={first} onClick={onUp}><Icon name="up" size={20} /></button>
+        <button className="icon-btn" aria-label="הזז למטה" disabled={last} onClick={onDown}><Icon name="down" size={20} /></button>
+        <button className="icon-btn" aria-label="שכפל" onClick={onDuplicate}><Icon name="copy" size={20} /></button>
+        <button className="icon-btn" aria-label="העבר לסט אחר" onClick={onMove}><Icon name="chev" size={20} /></button>
+        <button className="icon-btn" aria-label="מחק" onClick={onDelete} style={{ color: 'var(--bad)' }}><Icon name="trash" size={20} /></button>
       </div>
     </div>
   )
@@ -225,13 +227,16 @@ export default function SetEditor() {
 
   return (
     <div className="page study">
-      <div className="row spread">
-        <Link to={`/set/${set.id}`} className="btn primary sm">✓ סיום</Link>
-        <div className="row">
-          <button className="btn sm" onClick={() => { navigator.clipboard?.writeText(exportText(cards)); toast.show('הסט הועתק כטקסט') }}>ייצוא</button>
-          <button className="btn sm" onClick={() => setImportOpen(true)}>ייבוא</button>
-        </div>
-      </div>
+      <TopBar
+        back={`/set/${set.id}`}
+        title="עריכת סט"
+        right={
+          <>
+            <button className="btn ghost sm" onClick={() => { navigator.clipboard?.writeText(exportText(cards)); toast.show('הסט הועתק כטקסט') }}>ייצוא</button>
+            <button className="btn ghost sm" onClick={() => setImportOpen(true)}>ייבוא</button>
+          </>
+        }
+      />
       {err && <div className="error mt-s">{err}</div>}
 
       <div className="col mt">
@@ -261,10 +266,10 @@ export default function SetEditor() {
             </select>
           </label>
           <label className="field" style={{ gridColumn: '1 / -1' }}>תאריך מבחן (לתכנון הלימוד)
-            <input className="input" type="date" value={set.exam_date ?? ''} onChange={(e) => patchSet({ exam_date: e.target.value || null })} />
+            <input className="input" type="date" value={set.exam_date ?? ''} onChange={(e) => { const v = e.target.value || null; if (v !== (set.exam_date ?? null)) patchSet({ exam_date: v }) }} />
           </label>
         </div>
-        <p className="muted small">נוסחאות: כתוב <code dir="ltr">$x^2 + y^2$</code> בתוך שורה. כרטיסיית השלמה: סמן מילים ולחץ "חור".</p>
+        <p className="muted small">נוסחאות: כתוב <bdi><code dir="ltr" className="code-ltr">$x^2 + y^2$</code></bdi> בתוך שורה. כרטיסיית השלמה: סמן מילים בשדה המושג ולחץ "חור".</p>
       </div>
 
       <h2 className="mt">כרטיסיות ({cards.length})</h2>
@@ -286,7 +291,8 @@ export default function SetEditor() {
         <button className="btn block" onClick={addCard}>＋ כרטיסייה</button>
       </div>
 
-      <button className="btn danger mt" onClick={removeSet}>מחק סט</button>
+      <Link to={`/set/${set.id}`} className="btn primary block mt">סיום</Link>
+      <button className="btn danger block mt-s" onClick={removeSet}>מחק סט</button>
 
       {importOpen && (
         <Modal onClose={() => setImportOpen(false)}>

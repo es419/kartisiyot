@@ -4,6 +4,7 @@ import { useActivity, useStudy } from '../hooks'
 import { ErrorBox, Loading } from '../components/ui'
 import { fmtTime, shuffle } from '../lib/text'
 import Rich from '../components/Rich'
+import TopBar from '../components/TopBar'
 import type { Card, SetRow } from '../types'
 
 type Tile = { key: string; cardId: string; text: string; kind: 't' | 'd' }
@@ -85,15 +86,11 @@ function Game({ set, cards }: { set: SetRow; cards: Card[] }) {
 
   return (
     <div className="page study">
-      <div className="row spread">
-        <Link to={`/set/${set.id}`} className="btn ghost sm">✕ יציאה</Link>
-        <b>התאמה</b>
-        <span className="muted">{fmtTime(elapsed)}</span>
-      </div>
+      <TopBar close={`/set/${set.id}`} title="התאמה" right={<span className="pill">{fmtTime(elapsed)}</span>} />
       <p className="muted small mt-s">התאם מושג להגדרה שלו. טעות מוסיפה שנייה. {best !== null && <>שיא: <b>{fmtTime(best)}</b></>}</p>
 
       {finished ? (
-        <div className="index-card center mt" style={{ padding: '58px 16px 20px' }}>
+        <div className="index-card center mt" style={{ padding: '24px 18px' }}>
           <h1>{fmtTime(elapsed)}</h1>
           <p className="muted">{mistakes} טעויות{best !== null && elapsed <= best ? ' · שיא חדש' : ''}</p>
           <div className="row mt-s" style={{ justifyContent: 'center' }}>

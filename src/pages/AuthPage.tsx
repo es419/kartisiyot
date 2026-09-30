@@ -37,7 +37,7 @@ export default function AuthPage() {
         <Logo size={84} />
         <h1>כרטיסיות</h1>
       </div>
-      <div className="index-card" style={{ padding: '62px 20px 22px', marginTop: 22 }}>
+      <div className="index-card" style={{ padding: '24px 20px', marginTop: 22 }}>
         <form className="col" onSubmit={submit}>
           <h2>{mode === 'in' ? 'התחברות' : 'הרשמה'}</h2>
           <label className="field">

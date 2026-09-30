@@ -116,7 +116,7 @@ export default function Journal() {
 
       <div className="row mt wrap">
         <button className="btn sm" onClick={() => setWeekly(true)}>סיכום שבועי</button>
-        {openQuestions.length > 0 && <button className="chip on" onClick={() => setTypeF(typeF === 'question' ? '' : 'question')}>{openQuestions.length} שאלות פתוחות</button>}
+        {openQuestions.length > 0 && <button className="chip on" onClick={() => setTypeF(typeF === 'question' ? '' : 'question')}>{openQuestions.length} {openQuestions.length === 1 ? 'שאלה פתוחה' : 'שאלות פתוחות'}</button>}
       </div>
 
       <div className="col mt">

@@ -3,6 +3,8 @@ import { Link, useParams, useSearchParams } from 'react-router-dom'
 import { useStudy } from '../hooks'
 import { ErrorBox, Loading } from '../components/ui'
 import Rich from '../components/Rich'
+import Icon from '../components/Icon'
+import TopBar from '../components/TopBar'
 import { shuffle } from '../lib/text'
 import type { Card, SetRow } from '../types'
 
@@ -71,12 +73,8 @@ function Player({ set, cards }: { set: SetRow; cards: Card[] }) {
 
   return (
     <div className="page study">
-      <div className="row spread">
-        <Link to={`/set/${set.id}`} className="btn ghost sm">✕ יציאה</Link>
-        <b>האזנה</b>
-        <span className="muted">{idx + 1} / {deck.length}</span>
-      </div>
-      <div className="progress mt-s"><i style={{ width: `${((idx + 1) / deck.length) * 100}%` }} /></div>
+      <TopBar close={`/set/${set.id}`} title="האזנה" right={<span className="pill" dir="ltr">{idx + 1} / {deck.length}</span>} />
+      <div className="progress"><i style={{ width: `${((idx + 1) / deck.length) * 100}%` }} /></div>
 
       <div className="index-card now-playing mt" style={{ position: 'relative' }}>
         <div className={'term' + (playing && phase === 'def' ? ' dim' : '')} dir="auto"><Rich text={c.term} /></div>
@@ -84,9 +82,9 @@ function Player({ set, cards }: { set: SetRow; cards: Card[] }) {
       </div>
 
       <div className="row mt" style={{ justifyContent: 'center' }}>
-        <button className="btn" onClick={() => go(-1)} aria-label="הקודם">⏮</button>
-        <button className="btn primary" style={{ minWidth: 120 }} onClick={() => setPlaying(!playing)}>{playing ? '⏸ השהה' : '▶ נגן'}</button>
-        <button className="btn" onClick={() => go(1)} aria-label="הבא">⏭</button>
+        <button className="btn" onClick={() => go(-1)} aria-label="הקודם"><Icon name="prev" size={22} fill /></button>
+        <button className="btn primary" style={{ minWidth: 120 }} onClick={() => setPlaying(!playing)}><Icon name={playing ? 'pause' : 'play'} size={20} fill={!playing} /> {playing ? 'השהה' : 'נגן'}</button>
+        <button className="btn" onClick={() => go(1)} aria-label="הבא"><Icon name="next" size={22} fill /></button>
       </div>
 
       <div className="col mt">
@@ -99,8 +97,8 @@ function Player({ set, cards }: { set: SetRow; cards: Card[] }) {
           {[2, 4, 6].map((p) => <button key={p} className={'chip' + (pause === p ? ' on' : '')} onClick={() => setPause(p)}>{p} שנ׳</button>)}
         </div>
         <div className="row wrap">
-          <button className={'chip' + (shuffled ? ' on' : '')} onClick={() => { setShuffled(!shuffled); setIdx(0) }}>🔀 ערבוב</button>
-          <button className={'chip' + (loop ? ' on' : '')} onClick={() => setLoop(!loop)}>🔁 חזרה בלולאה</button>
+          <button className={'chip' + (shuffled ? ' on' : '')} onClick={() => { setShuffled(!shuffled); setIdx(0) }}>ערבוב</button>
+          <button className={'chip' + (loop ? ' on' : '')} onClick={() => setLoop(!loop)}>חזרה בלולאה</button>
         </div>
         <p className="muted small">בזמן ההשהיה נסה להגיד את ההגדרה לפני שהיא מוקראת. ההקראה נעצרת כשהמסך ננעל, ושפות ההקראה נקבעות בעריכת הסט.</p>
       </div>

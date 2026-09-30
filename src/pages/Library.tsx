@@ -6,6 +6,7 @@ import { ErrorBox, Loading, Modal } from '../components/ui'
 import PageHeader from '../components/PageHeader'
 import InstallHint from '../components/InstallHint'
 import Rich from '../components/Rich'
+import Icon from '../components/Icon'
 import { getGoal } from '../lib/goal'
 import { todayStr } from '../lib/text'
 import { supabase } from '../supabase'
@@ -79,8 +80,8 @@ export default function Library() {
     return (
       <Link key={s.id} to={`/set/${s.id}`} className="set-tile">
         <h3>{s.title}</h3>
-        <div className="row wrap muted small">
-          <span>{s.card_count ?? 0} כרטיסיות</span>
+        <div className="row wrap mt-s">
+          <span className="badge">{s.card_count ?? 0} כרטיסיות</span>
           {s.is_public && <span className="badge good">משותף</span>}
           {left !== null && left >= 0 && <span className="badge mark">{left === 0 ? 'מבחן היום' : `מבחן בעוד ${left} ימים`}</span>}
         </div>
@@ -93,25 +94,28 @@ export default function Library() {
   return (
     <div className="page">
       <PageHeader title="הספרייה">
+        <button className="icon-btn" aria-label="תיקייה חדשה" onClick={() => setFolderModal({ name: '' })}><Icon name="folder" /></button>
         <button className="btn ghost sm" onClick={() => supabase.auth.signOut()}>התנתק</button>
       </PageHeader>
       <InstallHint />
 
-      <div className="stat-strip mt-s">
-        <div className="stat"><b>{streak}</b><span>ימים ברצף</span></div>
-        <Link to="/review" className="stat" style={{ textDecoration: 'none', color: 'inherit' }}>
-          <b>{due}</b><span>לחזרה היום</span>
-        </Link>
-      </div>
-      <div className={'goal' + (today >= goal ? ' done' : '')}>
-        <div className="row spread small muted"><span>יעד יומי</span><span>{today} / {goal}</span></div>
-        <div className="progress mt-s"><i style={{ width: `${pct}%` }} /></div>
+      <div className="summary mt-s">
+        <div className="row spread">
+          <div className="row">
+            <span className="flame"><Icon name="flame" size={26} /></span>
+            <div><span className="big">{streak}</span> <span className="muted small">ימים ברצף</span></div>
+          </div>
+          <Link to="/review" className="btn primary sm">חזרה יומית · {due}</Link>
+        </div>
+        <div className={'goal' + (today >= goal ? ' done' : '')}>
+          <div className="row spread small muted"><span>יעד יומי</span><span dir="ltr">{today} / {goal}</span></div>
+          <div className="progress mt-s"><i style={{ width: `${pct}%` }} /></div>
+        </div>
       </div>
 
-      <div className="row mt">
+      <div className="search mt">
+        <Icon name="search" size={20} />
         <input className="input" type="search" placeholder="חיפוש סטים וכרטיסיות" value={q} onChange={(e) => setQ(e.target.value)} />
-        <button className="btn primary" onClick={() => nav('/set/new')}>＋ סט</button>
-        <button className="btn" aria-label="תיקייה חדשה" onClick={() => setFolderModal({ name: '' })}>📁</button>
       </div>
 
       {hits.length > 0 && (
@@ -121,7 +125,7 @@ export default function Library() {
             <Link key={h.id} to={`/set/${h.set_id}`} className="entry" style={{ textDecoration: 'none', color: 'inherit' }}>
               <b dir="auto"><Rich text={h.term} /></b>
               <div className="muted" dir="auto"><Rich text={h.definition} /></div>
-              <span className="badge mt-s">{h.set_title}</span>
+              <span className="badge primary mt-s">{h.set_title}</span>
             </Link>
           ))}
         </div>
@@ -133,6 +137,7 @@ export default function Library() {
         {data && data.sets.length === 0 && (
           <div className="empty">
             עדיין אין סטים.<br />צור סט ראשון, או ייבא רשימה מאקסל בתוך הסט.
+            <div className="mt-s"><button className="btn primary" onClick={() => nav('/set/new')}>＋ סט חדש</button></div>
           </div>
         )}
 
@@ -142,7 +147,7 @@ export default function Library() {
           return (
             <section key={f.id} className="col">
               <div className="row spread">
-                <h2>📁 {f.name}</h2>
+                <h2>{f.name}</h2>
                 <button className="btn ghost sm" onClick={() => setFolderModal({ id: f.id, name: f.name })}>עריכה</button>
               </div>
               {items.length ? <div className="grid">{items.map(tile)}</div> : <p className="muted small">התיקייה ריקה. בחר תיקייה בעריכת סט כדי להוסיף אליה.</p>}

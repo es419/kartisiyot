@@ -6,6 +6,8 @@ import { nextProgress } from '../lib/srs'
 import { grade, shuffle, type Verdict } from '../lib/text'
 import { speak } from '../lib/tts'
 import Rich from './Rich'
+import Icon from './Icon'
+import TopBar from './TopBar'
 import type { Card, Progress } from '../types'
 
 type Props = {
@@ -131,7 +133,7 @@ export default function LearnSession({ cards, progress, mode, title, backTo, ter
   if (!cur) {
     return (
       <div className="page study">
-        <h1>{mode === 'review' ? 'סיימת את החזרה' : 'סיימת את הסט'}</h1>
+        <TopBar close={backTo} title={mode === 'review' ? 'סיימת את החזרה' : 'סיימת את הסט'} />
         <p className="muted mt-s">{cards.length - struggled.size} מתוך {cards.length} נכונות בניסיון הראשון.</p>
         {struggled.size > 0 && (
           <div className="col mt">
@@ -157,16 +159,16 @@ export default function LearnSession({ cards, progress, mode, title, backTo, ter
 
   return (
     <div className="page study">
-      <div className="row spread">
-        <Link to={backTo} className="btn ghost sm">✕ יציאה</Link>
-        <b>{title}</b>
-        <button className={'btn sm' + (dir === 'dt' ? ' primary' : '')} onClick={() => !res && setDir(dir === 'td' ? 'dt' : 'td')} title="החלף כיוון">⇄</button>
-      </div>
-      <div className="progress mt-s"><i style={{ width: `${(mastered / cards.length) * 100}%` }} /></div>
+      <TopBar
+        close={backTo}
+        title={title}
+        right={<button className={'icon-btn' + (dir === 'dt' ? ' on' : '')} aria-label="החלף כיוון" onClick={() => !res && setDir(dir === 'td' ? 'dt' : 'td')}><Icon name="swap" size={21} /></button>}
+      />
+      <div className="progress"><i style={{ width: `${(mastered / cards.length) * 100}%` }} /></div>
       <p className="muted small mt-s">{mastered} מתוך {cards.length} נקלטו</p>
 
       <div className="index-card q-card mt" style={{ position: 'relative' }}>
-        <button className="icon-btn" style={{ position: 'absolute', top: 4, insetInlineStart: 6 }} aria-label="השמע" onClick={() => speak(promptOf(cur), promptLang)}>🔊</button>
+        <button className="icon-btn" style={{ position: 'absolute', top: 4, insetInlineStart: 6 }} aria-label="השמע" onClick={() => speak(promptOf(cur), promptLang)}><Icon name="speaker" size={21} /></button>
         {dir === 'td' && cur.image_url && <img className="q-img" src={cur.image_url} alt="" />}
         <div className="q-prompt" dir="auto"><Rich text={promptOf(cur)} /></div>
 
@@ -203,7 +205,7 @@ export default function LearnSession({ cards, progress, mode, title, backTo, ter
             <div className="row mt-s">
               <button className="btn primary grow" autoFocus onClick={next}>המשך</button>
               {!res.ok && kind === 'write' && res.given.trim() && <button className="btn" onClick={override}>צדקתי</button>}
-              <button className="icon-btn" aria-label="השמע תשובה" onClick={() => speak(ansOf(cur), ansLang)}>🔊</button>
+              <button className="icon-btn" aria-label="השמע תשובה" onClick={() => speak(ansOf(cur), ansLang)}><Icon name="speaker" size={21} /></button>
             </div>
           </div>
         )}

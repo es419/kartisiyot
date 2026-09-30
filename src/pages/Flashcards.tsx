@@ -3,8 +3,10 @@ import { Link, useParams, useSearchParams } from 'react-router-dom'
 import { saveProgress, updateCard } from '../api'
 import { useActivity, useStudy } from '../hooks'
 import { ErrorBox, Loading } from '../components/ui'
-import { nextProgress } from '../lib/srs'
+import Icon from '../components/Icon'
+import TopBar from '../components/TopBar'
 import Rich from '../components/Rich'
+import { nextProgress } from '../lib/srs'
 import { shuffle } from '../lib/text'
 import { speak } from '../lib/tts'
 import type { Card, Progress, SetRow } from '../types'
@@ -13,10 +15,10 @@ export default function Flashcards() {
   const { id } = useParams()
   const [sp] = useSearchParams()
   const { data, error, loading } = useStudy(id!, sp.get('starred') === '1')
-  if (loading && !data) return <div className="page"><Loading /></div>
-  if (error && !data) return <div className="page"><ErrorBox msg={error} /></div>
+  if (loading && !data) return <div className="page"><TopBar close={`/set/${id}`} /><Loading /></div>
+  if (error && !data) return <div className="page"><TopBar close={`/set/${id}`} /><ErrorBox msg={error} /></div>
   if (!data) return null
-  if (data.cards.length === 0) return <div className="page"><div className="empty">אין כרטיסיות ללימוד.</div><Link className="btn mt" to={`/set/${id}`}>חזרה</Link></div>
+  if (data.cards.length === 0) return <div className="page"><TopBar close={`/set/${id}`} /><div className="empty">אין כרטיסיות ללימוד.</div></div>
   return <Session set={data.set} cards={data.cards} progress={data.progress} />
 }
 
@@ -67,7 +69,7 @@ function Session({ set, cards, progress }: { set: SetRow; cards: Card[]; progres
     setIdx(0); setKnown([]); setUnknown([]); setFlipped(false)
   }
 
-  async function toggleStar() {
+  function toggleStar() {
     const v = !stars[card.id]
     setStars({ ...stars, [card.id]: v })
     updateCard(card.id, { starred: v }).catch(() => {})
@@ -76,10 +78,10 @@ function Session({ set, cards, progress }: { set: SetRow; cards: Card[]; progres
   if (done) {
     return (
       <div className="page study">
-        <h1>סיימת את הסבב</h1>
+        <TopBar close={`/set/${set.id}`} title="סיימת את הסבב" />
         <div className="stat-strip mt">
           <div className="stat"><b style={{ color: 'var(--good)' }}>{known.length}</b><span>ידעתי</span></div>
-          <div className="stat"><b style={{ color: 'var(--bad)' }}>{unknown.length}</b><span>לא ידעתי</span></div>
+          <div className="stat"><b style={{ color: 'var(--warn)' }}>{unknown.length}</b><span>עוד בלמידה</span></div>
         </div>
         <div className="col mt">
           {unknown.length > 0 && <button className="btn primary" onClick={() => restart(unknown, true)}>לעבור שוב על {unknown.length} שלא ידעתי</button>}
@@ -97,17 +99,23 @@ function Session({ set, cards, progress }: { set: SetRow; cards: Card[]; progres
 
   return (
     <div className="page study">
-      <div className="row spread">
-        <Link to={`/set/${set.id}`} className="btn ghost sm">✕ יציאה</Link>
-        <span className="muted">{idx + 1} / {deck.length}</span>
-        <div className="row">
-          <button className="btn sm" onClick={() => restart(deck, true)}>🔀</button>
-          <button className={'btn sm' + (swap ? ' primary' : '')} onClick={() => setSwap(!swap)}>⇄</button>
-        </div>
+      <TopBar
+        close={`/set/${set.id}`}
+        title={<span dir="ltr">{idx + 1} / {deck.length}</span>}
+        right={
+          <>
+            <button className="icon-btn" aria-label="ערבוב" onClick={() => restart(deck, true)}><Icon name="shuffle" size={21} /></button>
+            <button className={'icon-btn' + (swap ? ' on' : '')} aria-label="החלף צדדים" onClick={() => setSwap(!swap)}><Icon name="swap" size={21} /></button>
+          </>
+        }
+      />
+      <div className="progress"><i style={{ width: `${(idx / deck.length) * 100}%` }} /></div>
+      <div className="counters">
+        <span className="pill good" aria-label="ידעתי">{known.length}</span>
+        <span className="pill warn" aria-label="עוד בלמידה">{unknown.length}</span>
       </div>
-      <div className="progress mt-s"><i style={{ width: `${(idx / deck.length) * 100}%` }} /></div>
 
-      <div className="flash-wrap mt">
+      <div className="flash-wrap mt-s">
         <div
           className={'flash index-card' + (flipped ? ' flipped' : '')}
           onClick={() => setFlipped(!flipped)}
@@ -122,8 +130,8 @@ function Session({ set, cards, progress }: { set: SetRow; cards: Card[]; progres
         >
           <div className="face">
             <div className="corner">
-              <button className={'icon-btn' + (stars[card.id] ? ' on' : '')} aria-label="כוכב" onClick={(e) => { e.stopPropagation(); toggleStar() }}>{stars[card.id] ? '★' : '☆'}</button>
-              <button className="icon-btn" aria-label="השמע" onClick={(e) => { e.stopPropagation(); speak(front, frontLang) }}>🔊</button>
+              <button className={'icon-btn' + (stars[card.id] ? ' on' : '')} aria-label="כוכב" onClick={(e) => { e.stopPropagation(); toggleStar() }}><Icon name="star" size={22} fill={!!stars[card.id]} /></button>
+              <button className="icon-btn" aria-label="השמע" onClick={(e) => { e.stopPropagation(); speak(front, frontLang) }}><Icon name="speaker" size={21} /></button>
             </div>
             {!swap && card.image_url && <img src={card.image_url} alt="" />}
             <div className="txt" dir="auto"><Rich text={front} /></div>
@@ -131,7 +139,7 @@ function Session({ set, cards, progress }: { set: SetRow; cards: Card[]; progres
           <div className="face back">
             <div className="corner">
               <span />
-              <button className="icon-btn" aria-label="השמע" onClick={(e) => { e.stopPropagation(); speak(back, backLang) }}>🔊</button>
+              <button className="icon-btn" aria-label="השמע" onClick={(e) => { e.stopPropagation(); speak(back, backLang) }}><Icon name="speaker" size={21} /></button>
             </div>
             {swap && card.image_url && <img src={card.image_url} alt="" />}
             <div className="txt" dir="auto"><Rich text={back} /></div>
@@ -139,11 +147,11 @@ function Session({ set, cards, progress }: { set: SetRow; cards: Card[]; progres
           </div>
         </div>
       </div>
-      <p className="muted small center mt-s">לחיצה להיפוך. החלקה ימינה = ידעתי, שמאלה = לא ידעתי.</p>
+      <p className="muted small center mt-s">לחיצה להיפוך · החלקה ימינה = ידעתי · שמאלה = עוד בלמידה</p>
 
-      <div className="row mt">
-        <button className="btn danger grow" onClick={() => mark(false)}>✗ לא ידעתי</button>
-        <button className="btn primary grow" onClick={() => mark(true)}>✓ ידעתי</button>
+      <div className="row mt" style={{ justifyContent: 'center', gap: 36 }}>
+        <button className="round good" aria-label="ידעתי" onClick={() => mark(true)}><Icon name="check" size={30} stroke={2.6} /></button>
+        <button className="round warn" aria-label="לא ידעתי" onClick={() => mark(false)}><Icon name="close" size={30} stroke={2.4} /></button>
       </div>
     </div>
   )

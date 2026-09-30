@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
 import { useActivity, useStudy, useViewportHeight } from '../hooks'
 import Rich from '../components/Rich'
+import TopBar from '../components/TopBar'
 import { ErrorBox, Loading } from '../components/ui'
 import { grade, normalize, shuffle } from '../lib/text'
 import type { Card, SetRow } from '../types'
@@ -125,14 +126,14 @@ function Game({ set, cards }: { set: SetRow; cards: Card[] }) {
 
   return (
     <div className="page study">
-      <div className="row spread">
-        <Link to={`/set/${set.id}`} className="btn ghost sm">✕ יציאה</Link>
-        <b>כבידה</b>
-        <span>{'♥'.repeat(Math.max(0, lives))}<span className="muted">{'♡'.repeat(Math.max(0, 3 - lives))}</span> · {score}</span>
-      </div>
+      <TopBar
+        close={`/set/${set.id}`}
+        title="כבידה"
+        right={<span className="pill">{'♥'.repeat(Math.max(0, lives))}{'♡'.repeat(Math.max(0, 3 - lives))} · {score}</span>}
+      />
 
       {phase === 'ready' && (
-        <div className="index-card center mt" style={{ padding: '58px 18px 20px' }}>
+        <div className="index-card center mt" style={{ padding: '24px 18px' }}>
           <h2>הקלד את המושג לפני שההגדרה נופלת</h2>
           <p className="muted mt-s">יש לך 3 חיים. ככל שתצבור נקודות המשחק מהיר יותר.</p>
           <button className="btn primary mt" onClick={begin}>התחל</button>
@@ -156,7 +157,7 @@ function Game({ set, cards }: { set: SetRow; cards: Card[] }) {
       )}
 
       {phase === 'over' && (
-        <div className="index-card center mt" style={{ padding: '58px 18px 20px' }}>
+        <div className="index-card center mt" style={{ padding: '24px 18px' }}>
           <h1>{score} נקודות</h1>
           {missed.length > 0 && (
             <div className="col mt" style={{ textAlign: 'start' }}>
