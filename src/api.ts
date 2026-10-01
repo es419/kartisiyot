@@ -312,21 +312,42 @@ export async function moveCard(cardId: string, toSetId: string) {
 }
 
 // ---------- AI (Edge Function אחת: fc-magic) ----------
+/** כותרות HTTP חייבות להיות ASCII בלבד. מסירים כל תו אחר כדי שהבקשה לא תיכשל בדפדפן */
+const asciiOnly = (v: string) => v.replace(/[^\x21-\x7E]/g, '')
+
+/** קריאה ישירה לפונקציית ה-AI ב-Supabase, בלי הספרייה, עם כותרות מינימליות ובטוחות */
 export async function invokeAi<T>(body: Record<string, unknown>): Promise<T> {
-  const { data, error } = await supabase.functions.invoke('fc-magic', { body })
-  if (error) {
-    const ctx = (error as { context?: Response }).context
-    if (ctx?.status === 404) throw new Error('הפונקציה fc-magic עוד לא פרוסה ב-Supabase. ההוראות ב-README.')
-    try {
-      const j = await ctx?.json()
-      if (j?.error) throw new Error(j.error)
-    } catch (e) {
-      if (e instanceof Error && e.message && !/JSON|Unexpected|body/i.test(e.message)) throw e
-    }
-    throw new Error(error.message)
+  const base = String(import.meta.env.VITE_SUPABASE_URL ?? '').trim().replace(/\/+$/, '')
+  const key = asciiOnly(String(import.meta.env.VITE_SUPABASE_ANON_KEY ?? ''))
+  if (!base || !key) throw new Error('חסרה הגדרת Supabase באפליקציה.')
+
+  const { data } = await supabase.auth.getSession()
+  const token = data.session?.access_token ? asciiOnly(data.session.access_token) : ''
+  if (!token) throw new Error('נדרשת התחברות מחדש לאפליקציה. התנתק והתחבר שוב.')
+
+  let res: Response
+  try {
+    res = await fetch(`${base}/functions/v1/fc-magic`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', apikey: key, Authorization: `Bearer ${token}` },
+      body: JSON.stringify(body)
+    })
+  } catch (e) {
+    throw new Error(`לא ניתן להגיע לפונקציית ה-AI (${(e as Error).message}). בדוק חיבור לאינטרנט.`)
   }
-  if (data?.error) throw new Error(data.error)
-  return data as T
+
+  if (res.status === 404) throw new Error('הפונקציה fc-magic עוד לא פרוסה ב-Supabase. ההוראות ב-README.')
+  const text = await res.text()
+  let json: { error?: string } | null = null
+  try { json = JSON.parse(text) } catch { /* לא JSON */ }
+
+  if (!res.ok) {
+    if (json?.error) throw new Error(json.error)
+    if (res.status === 401) throw new Error('נדרשת התחברות מחדש לאפליקציה. התנתק והתחבר שוב.')
+    throw new Error(`שגיאה ${res.status} מהפונקציה: ${text.slice(0, 160)}`)
+  }
+  if (json?.error) throw new Error(json.error)
+  return json as T
 }
 
 export async function generateCards(input: { text?: string; pdf_base64?: string; count: number }) {

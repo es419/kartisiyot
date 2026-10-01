@@ -10,7 +10,7 @@ export function aiErrorText(msg: string): string {
   if (/fc-magic|לא פרוסה|Failed to send|non-2xx/i.test(msg)) {
     return 'תכונות ה-AI דורשות פריסה חד-פעמית של הפונקציה fc-magic ב-Supabase ומפתח API. ההוראות ב-README.'
   }
-  if (/ANTHROPIC_API_KEY|x-api-key|authentication|invalid api key|\b401\b/i.test(msg)) {
+  if (/ANTHROPIC_API_KEY|x-api-key|invalid api key|authentication_error/i.test(msg)) {
     return 'מפתח ה-API חסר או לא תקין. בדוק את הסוד ANTHROPIC_API_KEY ב-Supabase ופרוס את הפונקציה מחדש.'
   }
   if (/rate.?limit|overloaded|\b429\b|\b529\b/i.test(msg)) {
