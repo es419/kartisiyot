@@ -21,6 +21,7 @@ export default function Learn({ mode }: { mode: 'learn' | 'write' }) {
       backTo={`/set/${id}`}
       termLang={data.set.term_lang}
       defLang={data.set.def_lang}
+      grading={data.set.grading ?? 'flexible'}
     />
   )
 }

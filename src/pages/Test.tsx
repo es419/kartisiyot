@@ -7,6 +7,9 @@ import { nextProgress } from '../lib/srs'
 import { grade, shuffle } from '../lib/text'
 import Rich from '../components/Rich'
 import TopBar from '../components/TopBar'
+import { aiFallbackText } from '../components/AiNote'
+import { aiGrade } from '../ai'
+import { gradeWith } from '../lib/grading'
 import type { Card, Progress, SetRow } from '../types'
 
 type Cfg = { count: number; mc: boolean; tf: boolean; write: boolean; match: boolean }
@@ -58,6 +61,9 @@ function TestRun({ set, cards, progress }: { set: SetRow; cards: Card[]; progres
   const [answers, setAnswers] = useState<Record<string, string>>({})
   const [matchAns, setMatchAns] = useState<Record<string, string>>({})
   const [outcome, setOutcome] = useState<Record<string, boolean>>({})
+  const [checking, setChecking] = useState(false)
+  const [aiNote, setAiNote] = useState<string | null>(null)
+  const level = set.grading ?? 'flexible'
   const activity = useActivity()
 
   const total = useMemo(() => (built ? built.qs.length + built.matchCards.length : 0), [built])
@@ -65,20 +71,31 @@ function TestRun({ set, cards, progress }: { set: SetRow; cards: Card[]; progres
 
   function start() {
     const b = build(cards, cfg)
-    setBuilt(b); setAnswers({}); setMatchAns({}); setOutcome({}); setPhase('taking')
+    setBuilt(b); setAnswers({}); setMatchAns({}); setOutcome({}); setAiNote(null); setPhase('taking')
     window.scrollTo(0, 0)
   }
 
-  function submit() {
-    if (!built) return
+  async function submit() {
+    if (!built || checking) return
     const out: Record<string, boolean> = {}
     for (const q of built.qs) {
       const a = answers[q.id] ?? ''
       if (q.kind === 'mc') out[q.id] = a === q.card.definition
       else if (q.kind === 'tf') out[q.id] = a !== '' && (a === 'true') === q.isTrue
-      else out[q.id] = grade(a, q.card.definition) !== 'no'
+      else out[q.id] = gradeWith(level, a, q.card.definition, q.card.alts) !== 'no'
     }
     for (const c of built.matchCards) out[c.id] = matchAns[c.id] === c.definition
+    if (level === 'smart') {
+      const items = built.qs.filter((q) => q.kind === 'write' && !out[q.id] && (answers[q.id] ?? '').trim().length > 1)
+      if (items.length) {
+        setChecking(true)
+        try {
+          const v = await aiGrade(items.map((q) => ({ q: q.card.term, expected: q.card.definition, given: answers[q.id] })))
+          items.forEach((q, i) => { if (v[i] !== 'no') out[q.id] = true })
+        } catch (e) { setAiNote(aiFallbackText((e as Error).message)) }
+        setChecking(false)
+      }
+    }
     setOutcome(out)
     for (const [cardId, ok] of Object.entries(out)) {
       const np = nextProgress(progress[cardId], ok, cardId, set.id)
@@ -130,6 +147,7 @@ function TestRun({ set, cards, progress }: { set: SetRow; cards: Card[]; progres
         </div>
       )}
 
+      {done && aiNote && <div className="error mt">{aiNote}</div>}
       <div className="col mt">
         {built.qs.map((q, i) => {
           const ok = outcome[q.id]
@@ -198,7 +216,7 @@ function TestRun({ set, cards, progress }: { set: SetRow; cards: Card[]; progres
         )}
       </div>
 
-      {!done && <button className="btn primary block mt" onClick={submit}>סיים ובדוק</button>}
+      {!done && <button className="btn primary block mt" disabled={checking} onClick={submit}>{checking ? 'בודק…' : 'סיים ובדוק'}</button>}
     </div>
   )
 }

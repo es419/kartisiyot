@@ -7,8 +7,11 @@ import { grade, shuffle, type Verdict } from '../lib/text'
 import { speak } from '../lib/tts'
 import Rich from './Rich'
 import Icon from './Icon'
+import { aiFallbackText } from './AiNote'
 import TopBar from './TopBar'
-import type { Card, Progress } from '../types'
+import { aiGrade } from '../ai'
+import { gradeWith } from '../lib/grading'
+import type { Card, Level, Progress } from '../types'
 
 type Props = {
   cards: Card[]
@@ -18,11 +21,13 @@ type Props = {
   backTo: string
   termLang?: string
   defLang?: string
+  grading?: Level | ((c: Card) => Level)
 }
 
-type Result = { ok: boolean; verdict: Verdict; given: string; prev?: Progress }
+type Result = { ok: boolean; verdict: Verdict; given: string; prev?: Progress; ai?: boolean; aiFail?: string }
 
-export default function LearnSession({ cards, progress, mode, title, backTo, termLang = 'en-US', defLang = 'he-IL' }: Props) {
+export default function LearnSession({ cards, progress, mode, title, backTo, termLang = 'en-US', defLang = 'he-IL', grading = 'flexible' }: Props) {
+  const levelOf = (c: Card): Level => (typeof grading === 'function' ? grading(c) : grading)
   const [dir, setDir] = useState<'td' | 'dt'>('td')
   const byId = useMemo(() => Object.fromEntries(cards.map((c) => [c.id, c])), [cards])
   const prog = useRef<Record<string, Progress>>({ ...progress })
@@ -39,6 +44,7 @@ export default function LearnSession({ cards, progress, mode, title, backTo, ter
   const [input, setInput] = useState('')
   const [picked, setPicked] = useState<string | null>(null)
   const [round, setRound] = useState(0)
+  const [checking, setChecking] = useState(false)
 
   const cur = byId[queue[0]] as Card | undefined
   const promptOf = (c: Card) => (dir === 'td' ? c.term : c.definition)
@@ -74,16 +80,27 @@ export default function LearnSession({ cards, progress, mode, title, backTo, ter
     saveProgress(np).catch(() => {})
   }
 
-  function submit(given: string) {
-    if (!cur || res) return
+  async function submit(given: string) {
+    if (!cur || res || checking) return
     const expected = ansOf(cur)
-    const verdict: Verdict = kind === 'mc' ? (given === expected ? 'yes' : 'no') : grade(given, expected)
+    const level = levelOf(cur)
+    let verdict: Verdict = kind === 'mc' ? (given === expected ? 'yes' : 'no') : gradeWith(level, given, expected, dir === 'td' ? cur.alts : undefined)
+    let ai = false
+    let aiFail: string | undefined
+    if (verdict === 'no' && kind === 'write' && given.trim().length > 1 && level === 'smart') {
+      setChecking(true)
+      try {
+        const [v] = await aiGrade([{ q: promptOf(cur), expected, given }])
+        if (v && v !== 'no') { verdict = v; ai = true }
+      } catch (e) { aiFail = aiFallbackText((e as Error).message) }
+      setChecking(false)
+    }
     const ok = verdict !== 'no'
     const prev = prog.current[cur.id]
     record(ok, prev)
     activity.add(ok)
     if (!ok) setStruggled((s) => new Set(s).add(cur.id))
-    setRes({ ok, verdict, given, prev })
+    setRes({ ok, verdict, given, prev, ai, aiFail })
   }
 
   function override() {
@@ -191,7 +208,7 @@ export default function LearnSession({ cards, progress, mode, title, backTo, ter
             <input className="input" autoFocus onFocus={(e) => e.currentTarget.scrollIntoView({ block: 'center', behavior: 'smooth' })} autoCapitalize="off" autoCorrect="off" spellCheck={false} dir="auto" placeholder="הקלד תשובה" value={input} readOnly={!!res} onChange={(e) => setInput(e.target.value)} />
             {!res && (
               <div className="row">
-                <button className="btn primary grow">בדוק</button>
+                <button className="btn primary grow" disabled={checking}>{checking ? 'בודק…' : 'בדוק'}</button>
                 <button type="button" className="btn" onClick={() => submit('')}>לא יודע</button>
               </div>
             )}
@@ -200,8 +217,9 @@ export default function LearnSession({ cards, progress, mode, title, backTo, ter
 
         {res && (
           <div className={'feedback ' + (res.ok ? 'good' : 'bad')}>
-            {res.ok ? (res.verdict === 'close' ? 'כמעט מדויק, נספר כנכון' : 'נכון') : 'לא נכון'}
-            {(!res.ok || res.verdict === 'close') && <div className="answer-line" dir="auto">התשובה: <Rich text={ansOf(cur)} /></div>}
+            {res.ok ? (res.ai ? 'נכון לפי המשמעות' : res.verdict === 'close' ? 'כמעט מדויק, נספר כנכון' : 'נכון') : 'לא נכון'}
+            {(!res.ok || res.verdict === 'close' || res.ai) && <div className="answer-line" dir="auto">התשובה: <Rich text={ansOf(cur)} /></div>}
+            {res.aiFail && <div className="small muted mt-s">{res.aiFail}</div>}
             <div className="row mt-s">
               <button className="btn primary grow" autoFocus onClick={next}>המשך</button>
               {!res.ok && kind === 'write' && res.given.trim() && <button className="btn" onClick={override}>צדקתי</button>}

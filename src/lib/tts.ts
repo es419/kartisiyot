@@ -1,9 +1,9 @@
-export function speak(text: string, lang: string) {
+export function speak(text: string, lang: string, rate = 0.95) {
   if (!('speechSynthesis' in window) || !text.trim()) return
   window.speechSynthesis.cancel()
   const u = new SpeechSynthesisUtterance(text)
   u.lang = lang
-  u.rate = 0.95
+  u.rate = rate
   window.speechSynthesis.speak(u)
 }
 

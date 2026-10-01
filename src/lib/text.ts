@@ -17,7 +17,7 @@ export function normalize(s: string): string {
     .trim()
 }
 
-function lev(a: string, b: string): number {
+export function lev(a: string, b: string): number {
   const dp: number[] = Array.from({ length: b.length + 1 }, (_, i) => i)
   for (let i = 1; i <= a.length; i++) {
     let prev = dp[0]

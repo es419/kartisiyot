@@ -18,6 +18,8 @@ create table if not exists fc_sets (
   term_lang text not null default 'en-US',
   def_lang text not null default 'he-IL',
   exam_date date,
+  listed boolean not null default false,
+  grading text not null default 'flexible',
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
@@ -29,6 +31,7 @@ create table if not exists fc_cards (
   term text not null default '',
   definition text not null default '',
   image_url text,
+  alts text not null default '',
   position int not null default 0,
   starred boolean not null default false,
   created_at timestamptz not null default now()
@@ -126,3 +129,24 @@ create policy "fc upload own images" on storage.objects for insert to authentica
 drop policy if exists "fc delete own images" on storage.objects;
 create policy "fc delete own images" on storage.objects for delete to authenticated
   using (bucket_id = 'fc-images' and (storage.foldername(name))[1] = auth.uid()::text);
+
+-- תרשימים אינטראקטיביים
+
+create table if not exists fc_diagrams (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null default auth.uid() references auth.users on delete cascade,
+  set_id uuid not null references fc_sets on delete cascade,
+  title text not null default 'תרשים חדש',
+  image_url text not null,
+  points jsonb not null default '[]'::jsonb,
+  created_at timestamptz not null default now()
+);
+create index if not exists fc_diagrams_set_idx on fc_diagrams(set_id);
+alter table fc_diagrams enable row level security;
+
+drop policy if exists "own diagrams" on fc_diagrams;
+create policy "own diagrams" on fc_diagrams for all using (user_id = auth.uid()) with check (user_id = auth.uid());
+drop policy if exists "public diagrams readable" on fc_diagrams;
+create policy "public diagrams readable" on fc_diagrams for select to anon, authenticated
+  using (exists (select 1 from fc_sets s where s.id = fc_diagrams.set_id and s.is_public));
+

@@ -113,6 +113,20 @@ export default function Library() {
         </div>
       </div>
 
+      <div className="list mt">
+        <Link to="/explore" className="list-row">
+          <span className="ico"><Icon name="globe" /></span>
+          <span className="tx"><b>גלה סטים ציבוריים</b><span>חומר שאנשים אחרים יצרו</span></span>
+          <span className="chev"><Icon name="chev" size={20} /></span>
+        </Link>
+        <Link to="/solve" className="list-row">
+          <span className="ico"><Icon name="solve" /></span>
+          <span className="tx"><b>פותר שאלות</b><span>פתרון מוסבר שלב אחר שלב</span></span>
+          <span className="badge primary">AI</span>
+          <span className="chev"><Icon name="chev" size={20} /></span>
+        </Link>
+      </div>
+
       <div className="search mt">
         <Icon name="search" size={20} />
         <input className="input" type="search" placeholder="חיפוש סטים וכרטיסיות" value={q} onChange={(e) => setQ(e.target.value)} />

@@ -4,8 +4,10 @@ import { useActivity, useStudy, useViewportHeight } from '../hooks'
 import Rich from '../components/Rich'
 import TopBar from '../components/TopBar'
 import { ErrorBox, Loading } from '../components/ui'
-import { grade, normalize, shuffle } from '../lib/text'
-import type { Card, SetRow } from '../types'
+import { aiGrade } from '../ai'
+import { gradeWith } from '../lib/grading'
+import { normalize, shuffle, type Verdict } from '../lib/text'
+import type { Card, Level, SetRow } from '../types'
 
 type Rock = { id: number; card: Card; x: number; y: number; v: number }
 
@@ -27,6 +29,9 @@ function Game({ set, cards }: { set: SetRow; cards: Card[] }) {
   const [input, setInput] = useState('')
   const [missed, setMissed] = useState<Card[]>([])
   const [flash, setFlash] = useState<string | null>(null)
+  const [checking, setChecking] = useState(false)
+  const paused = useRef(false)
+  const level = (set.grading ?? 'flexible') as Level
   const activity = useActivity()
   const vh = useViewportHeight()
   const skyH = Math.max(220, Math.min(520, vh - 230))
@@ -59,6 +64,13 @@ function Game({ set, cards }: { set: SetRow; cards: Card[] }) {
     let raf = 0
     const tick = (t: number) => {
       if (!lastT.current) { lastT.current = t; lastSpawn.current = t - 1500 }
+      if (paused.current) {
+        // המשחק מושהה בזמן שה-AI בודק תשובה
+        lastSpawn.current += t - lastT.current
+        lastT.current = t
+        raf = requestAnimationFrame(tick)
+        return
+      }
       const dt = Math.min(64, t - lastT.current)
       lastT.current = t
       const level = Math.floor(scoreRef.current / 5)
@@ -117,10 +129,25 @@ function Game({ set, cards }: { set: SetRow; cards: Card[] }) {
     if (found) hit(found)
   }
 
-  function onEnter() {
+  async function onEnter() {
+    if (checking) return
+    const typed = input
     const sorted = [...rocksRef.current].sort((a, b) => b.y - a.y)
-    const found = sorted.find((r) => grade(input, r.card.term) !== 'no')
-    if (found) hit(found)
+    let found = sorted.find((r) => gradeWith(level, typed, r.card.term, undefined) !== 'no')
+    if (!found && level === 'smart' && typed.trim().length > 1 && sorted.length) {
+      paused.current = true
+      setChecking(true)
+      try {
+        const items = sorted.map((r) => ({ q: r.card.definition, expected: r.card.term, given: typed }))
+        const timeout = new Promise<Verdict[]>((_, rej) => setTimeout(() => rej(new Error('timeout')), 6000))
+        const v = await Promise.race([aiGrade(items), timeout])
+        const i = v.findIndex((x) => x !== 'no')
+        if (i >= 0) found = sorted[i]
+      } catch { /* נשארים עם הבדיקה הגמישה */ }
+      paused.current = false
+      setChecking(false)
+    }
+    if (found && rocksRef.current.some((r) => r.id === found!.id)) hit(found)
     else setInput('')
   }
 
@@ -150,8 +177,8 @@ function Game({ set, cards }: { set: SetRow; cards: Card[] }) {
             <div className="ground" />
           </div>
           <form className="row mt-s" onSubmit={(e) => { e.preventDefault(); onEnter() }}>
-            <input ref={inputRef} className="input" autoFocus autoCapitalize="off" autoCorrect="off" spellCheck={false} dir="auto" placeholder="הקלד מושג" value={input} onChange={(e) => onChange(e.target.value)} />
-            <button className="btn primary">שלח</button>
+            <input ref={inputRef} className="input" autoFocus autoCapitalize="off" autoCorrect="off" spellCheck={false} dir="auto" placeholder="הקלד מושג" value={input} readOnly={checking} onChange={(e) => onChange(e.target.value)} />
+            <button className="btn primary" disabled={checking}>{checking ? 'בודק…' : 'שלח'}</button>
           </form>
         </>
       )}

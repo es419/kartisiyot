@@ -15,6 +15,16 @@ import Journal from './pages/Journal'
 import Stats from './pages/Stats'
 import SharedSet from './pages/SharedSet'
 import Listen from './pages/Listen'
+import Spell from './pages/Spell'
+import Blast from './pages/Blast'
+import Blocks from './pages/Blocks'
+import Explore from './pages/Explore'
+import DiagramEditor, { DiagramPractice } from './pages/Diagrams'
+import AiTestPage from './pages/AiTest'
+import StudyGuide from './pages/StudyGuide'
+import Solve from './pages/Solve'
+import LiveHost from './pages/LiveHost'
+import LivePlay from './pages/LivePlay'
 import { Splash } from './components/Logo'
 
 function Protected() {
@@ -39,6 +49,8 @@ export default function App() {
       <HashRouter>
         <Routes>
           <Route path="/s/:id" element={<SharedSet />} />
+          <Route path="/play" element={<LivePlay />} />
+          <Route path="/play/:code" element={<LivePlay />} />
           <Route element={<Protected />}>
             <Route element={<Layout />}>
               <Route path="/" element={<Library />} />
@@ -56,6 +68,16 @@ export default function App() {
             <Route path="/set/:id/match" element={<Match />} />
             <Route path="/set/:id/gravity" element={<Gravity />} />
             <Route path="/set/:id/listen" element={<Listen />} />
+            <Route path="/set/:id/spell" element={<Spell />} />
+            <Route path="/set/:id/blast" element={<Blast />} />
+            <Route path="/set/:id/blocks" element={<Blocks />} />
+            <Route path="/set/:id/live" element={<LiveHost />} />
+            <Route path="/set/:id/aitest" element={<AiTestPage />} />
+            <Route path="/set/:id/guide" element={<StudyGuide />} />
+            <Route path="/set/:id/diagram/:did" element={<DiagramEditor />} />
+            <Route path="/set/:id/diagram/:did/practice" element={<DiagramPractice />} />
+            <Route path="/explore" element={<Explore />} />
+            <Route path="/solve" element={<Solve />} />
           </Route>
         </Routes>
       </HashRouter>

@@ -10,10 +10,11 @@ import Rich from '../components/Rich'
 import Icon from '../components/Icon'
 import TopBar from '../components/TopBar'
 import { LANGS } from '../lib/tts'
+import { LEVEL_LABELS } from '../lib/grading'
 import { resizeImage } from '../lib/image'
 import { isCloze } from '../lib/cloze'
 import { detectColSep, exportText, parseImport, type ColSep, type RowSep } from '../lib/text'
-import type { Card, SetRow } from '../types'
+import type { Card, Level, SetRow } from '../types'
 
 export function NewSet() {
   const nav = useNavigate()
@@ -45,6 +46,7 @@ function CardRow({ card, first, last, onDelete, onUp, onDown, onDuplicate, onMov
   const [term, setTerm] = useState(card.term)
   const [def, setDef] = useState(card.definition)
   const [img, setImg] = useState(card.image_url)
+  const [alts, setAlts] = useState(card.alts ?? '')
   const [busy, setBusy] = useState(false)
   const file = useRef<HTMLInputElement>(null)
   const termRef = useRef<HTMLTextAreaElement>(null)
@@ -82,6 +84,12 @@ function CardRow({ card, first, last, onDelete, onUp, onDown, onDuplicate, onMov
         <textarea ref={termRef} className="textarea" dir="auto" placeholder="מושג (או משפט עם חור)" value={term} rows={2} onChange={(e) => setTerm(e.target.value)} onBlur={() => term !== card.term && save({ term })} />
         <textarea className="textarea" dir="auto" placeholder={cloze ? 'לא נדרש בכרטיסיית השלמה' : 'הגדרה'} value={def} rows={2} disabled={cloze} onChange={(e) => setDef(e.target.value)} onBlur={() => def !== card.definition && save({ definition: def })} />
       </div>
+      {!cloze && (
+        <details className="alts">
+          <summary>תשובות נוספות שמתקבלות{alts.trim() ? ' ✓' : ''}</summary>
+          <input className="input mt-s" dir="auto" placeholder="ניסוחים נוספים שנחשבים נכונים, מופרדים ב-;" value={alts} onChange={(e) => setAlts(e.target.value)} onBlur={() => alts !== (card.alts ?? '') && save({ alts })} />
+        </details>
+      )}
       {cloze && <div className="cloze-note">כרטיסיית השלמה: החלקים שב-{'{{ }}'} יוסתרו בלימוד.</div>}
       {(term.includes('$') || def.includes('$')) && (
         <div className="preview" dir="auto"><Rich text={term} /> <span className="muted">←</span> <Rich text={def} /></div>
@@ -250,9 +258,10 @@ export default function SetEditor() {
             </select>
           </label>
           <label className="field">שיתוף
-            <select className="select" value={set.is_public ? '1' : '0'} onChange={(e) => patchSet({ is_public: e.target.value === '1' })}>
+            <select className="select" value={set.listed ? '2' : set.is_public ? '1' : '0'} onChange={(e) => patchSet({ is_public: e.target.value !== '0', listed: e.target.value === '2' })}>
               <option value="0">פרטי</option>
               <option value="1">כל מי שיש לו הקישור</option>
+              <option value="2">ציבורי (מופיע בחיפוש)</option>
             </select>
           </label>
           <label className="field">שפת המושג (להשמעה)
@@ -265,10 +274,17 @@ export default function SetEditor() {
               {LANGS.map((l) => <option key={l.code} value={l.code}>{l.label}</option>)}
             </select>
           </label>
+          <label className="field" style={{ gridColumn: '1 / -1' }}>בדיקת תשובות מוקלדות
+            <select className="select" value={set.grading ?? 'flexible'} onChange={(e) => patchSet({ grading: e.target.value as Level })}>
+              {(Object.keys(LEVEL_LABELS) as Level[]).map((l) => <option key={l} value={l}>{LEVEL_LABELS[l]}</option>)}
+            </select>
+          </label>
+          {set.grading === 'smart' && <p className="cloze-note" style={{ gridColumn: '1 / -1' }}>הרמה החכמה דורשת פריסה של פונקציית ה-AI (ראה README), ובלעדיה האפליקציה חוזרת לבדיקה הגמישה. התשובות נשלחות ל-Anthropic, אז לא לחומר פנימי או רגיש מהעבודה.</p>}
           <label className="field" style={{ gridColumn: '1 / -1' }}>תאריך מבחן (לתכנון הלימוד)
             <input className="input" type="date" value={set.exam_date ?? ''} onChange={(e) => { const v = e.target.value || null; if (v !== (set.exam_date ?? null)) patchSet({ exam_date: v }) }} />
           </label>
         </div>
+        {set.listed && <p className="cloze-note" style={{ gridColumn: '1 / -1' }}>סט ציבורי מופיע בחיפוש לכל משתמשי האפליקציה. אל תפרסם כאן חומר פנימי או רגיש מהעבודה.</p>}
         <p className="muted small">נוסחאות: כתוב <bdi><code dir="ltr" className="code-ltr">$x^2 + y^2$</code></bdi> בתוך שורה. כרטיסיית השלמה: סמן מילים בשדה המושג ולחץ "חור".</p>
       </div>
 

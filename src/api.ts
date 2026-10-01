@@ -1,5 +1,5 @@
 import { supabase } from './supabase'
-import type { Activity, Card, Entry, Folder, Progress, SetRow } from './types'
+import type { Activity, Card, Diagram, Entry, Folder, Point, Progress, SetRow } from './types'
 import { todayStr } from './lib/text'
 import { studyView } from './lib/cloze'
 
@@ -85,8 +85,14 @@ export async function copySet(id: string): Promise<SetRow> {
   if (cards.length) {
     must(
       await supabase.from('fc_cards').insert(
-        cards.map((c, i) => ({ set_id: created.id, term: c.term, definition: c.definition, image_url: c.image_url, position: i }))
+        cards.map((c, i) => ({ set_id: created.id, term: c.term, definition: c.definition, alts: c.alts ?? '', image_url: c.image_url, position: i }))
       ).select()
+    )
+  }
+  const dgs = await supabase.from('fc_diagrams').select('*').eq('set_id', id)
+  if (!dgs.error && dgs.data?.length) {
+    await supabase.from('fc_diagrams').insert(
+      (dgs.data as Diagram[]).map((d) => ({ set_id: created.id, title: d.title, image_url: d.image_url, points: d.points }))
     )
   }
   return created
@@ -291,7 +297,7 @@ export async function duplicateCard(c: Card): Promise<Card> {
   return must(
     await supabase
       .from('fc_cards')
-      .insert({ set_id: c.set_id, term: c.term, definition: c.definition, image_url: c.image_url, position: (last[0]?.position ?? -1) + 1 })
+      .insert({ set_id: c.set_id, term: c.term, definition: c.definition, alts: c.alts ?? '', image_url: c.image_url, position: (last[0]?.position ?? -1) + 1 })
       .select()
       .single()
   ) as Card
@@ -305,9 +311,9 @@ export async function moveCard(cardId: string, toSetId: string) {
   await supabase.from('fc_progress').update({ set_id: toSetId }).eq('card_id', cardId)
 }
 
-// ---------- יצירת כרטיסיות עם AI (Edge Function אופציונלית) ----------
-export async function generateCards(input: { text?: string; pdf_base64?: string; count: number }) {
-  const { data, error } = await supabase.functions.invoke('fc-magic', { body: input })
+// ---------- AI (Edge Function אחת: fc-magic) ----------
+export async function invokeAi<T>(body: Record<string, unknown>): Promise<T> {
+  const { data, error } = await supabase.functions.invoke('fc-magic', { body })
   if (error) {
     const ctx = (error as { context?: Response }).context
     if (ctx?.status === 404) throw new Error('הפונקציה fc-magic עוד לא פרוסה ב-Supabase. ההוראות ב-README.')
@@ -320,5 +326,45 @@ export async function generateCards(input: { text?: string; pdf_base64?: string;
     throw new Error(error.message)
   }
   if (data?.error) throw new Error(data.error)
-  return (data?.cards ?? []) as { term: string; definition: string }[]
+  return data as T
+}
+
+export async function generateCards(input: { text?: string; pdf_base64?: string; count: number }) {
+  const d = await invokeAi<{ cards: { term: string; definition: string }[] }>({ action: 'cards', ...input })
+  return d.cards ?? []
+}
+
+// ---------- גילוי סטים ציבוריים ----------
+export type PublicSet = { id: string; title: string; description: string; card_count: number }
+
+export async function exploreSets(q: string): Promise<PublicSet[]> {
+  let query = supabase
+    .from('fc_sets')
+    .select('id,title,description,fc_cards(count)')
+    .eq('is_public', true)
+    .eq('listed', true)
+    .order('updated_at', { ascending: false })
+    .limit(40)
+  const t = q.replace(/[,()%*]/g, ' ').trim()
+  if (t) query = query.or(`title.ilike.*${t}*,description.ilike.*${t}*`)
+  const rows = must(await query) as unknown as { id: string; title: string; description: string; fc_cards: { count: number }[] }[]
+  return rows.map((r) => ({ id: r.id, title: r.title, description: r.description, card_count: r.fc_cards?.[0]?.count ?? 0 }))
+}
+
+// ---------- תרשימים ----------
+export const listDiagrams = (setId: string) =>
+  cached('diagrams:' + setId, async () =>
+    must(await supabase.from('fc_diagrams').select('*').eq('set_id', setId).order('created_at')) as Diagram[]
+  )
+export const getDiagram = (id: string) =>
+  cached('diagram:' + id, async () => must(await supabase.from('fc_diagrams').select('*').eq('id', id).single()) as Diagram)
+
+export async function createDiagram(setId: string, image_url: string, title = 'תרשים חדש') {
+  return must(await supabase.from('fc_diagrams').insert({ set_id: setId, image_url, title, points: [] }).select().single()) as Diagram
+}
+export async function updateDiagram(id: string, patch: { title?: string; points?: Point[] }) {
+  must(await supabase.from('fc_diagrams').update(patch).eq('id', id).select())
+}
+export async function deleteDiagram(id: string) {
+  must(await supabase.from('fc_diagrams').delete().eq('id', id).select())
 }
