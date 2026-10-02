@@ -29,6 +29,7 @@ export type Card = {
   position: number
   starred: boolean
   alts?: string // תשובות נוספות שמתקבלות, מופרדות ב-; או בשורה חדשה
+  grading?: Level | null // רמת בדיקה לכרטיסייה הזאת. ריק = כמו הסט
   full?: string // תצוגה בלבד: משפט מלא של כרטיסיית השלמה
 }
 

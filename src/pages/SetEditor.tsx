@@ -47,6 +47,7 @@ function CardRow({ card, first, last, onDelete, onUp, onDown, onDuplicate, onMov
   const [def, setDef] = useState(card.definition)
   const [img, setImg] = useState(card.image_url)
   const [alts, setAlts] = useState(card.alts ?? '')
+  const [grading, setGrading] = useState<string>(card.grading ?? '')
   const [busy, setBusy] = useState(false)
   const file = useRef<HTMLInputElement>(null)
   const termRef = useRef<HTMLTextAreaElement>(null)
@@ -84,12 +85,26 @@ function CardRow({ card, first, last, onDelete, onUp, onDown, onDuplicate, onMov
         <textarea ref={termRef} className="textarea" dir="auto" placeholder="מושג (או משפט עם חור)" value={term} rows={2} onChange={(e) => setTerm(e.target.value)} onBlur={() => term !== card.term && save({ term })} />
         <textarea className="textarea" dir="auto" placeholder={cloze ? 'לא נדרש בכרטיסיית השלמה' : 'הגדרה'} value={def} rows={2} disabled={cloze} onChange={(e) => setDef(e.target.value)} onBlur={() => def !== card.definition && save({ definition: def })} />
       </div>
-      {!cloze && (
-        <details className="alts">
-          <summary>תשובות נוספות שמתקבלות{alts.trim() ? ' ✓' : ''}</summary>
-          <input className="input mt-s" dir="auto" placeholder="ניסוחים נוספים שנחשבים נכונים, מופרדים ב-;" value={alts} onChange={(e) => setAlts(e.target.value)} onBlur={() => alts !== (card.alts ?? '') && save({ alts })} />
-        </details>
-      )}
+      <details className="alts">
+        <summary>הגדרות בדיקה{alts.trim() || grading ? ' ✓' : ''}</summary>
+        <div className="col mt-s">
+          <label className="field">רמת בדיקה של כרטיסייה זו
+            <select
+              className="select"
+              value={grading}
+              onChange={(e) => { setGrading(e.target.value); save({ grading: (e.target.value || null) as Level | null }) }}
+            >
+              <option value="">כמו הסט</option>
+              <option value="exact">מדויק</option>
+              <option value="flexible">גמיש</option>
+              <option value="smart">חכם (AI)</option>
+            </select>
+          </label>
+          {!cloze && (
+            <input className="input" dir="auto" placeholder="תשובות נוספות שנחשבות נכונות, מופרדות ב-;" value={alts} onChange={(e) => setAlts(e.target.value)} onBlur={() => alts !== (card.alts ?? '') && save({ alts })} />
+          )}
+        </div>
+      </details>
       {cloze && <div className="cloze-note">כרטיסיית השלמה: החלקים שב-{'{{ }}'} יוסתרו בלימוד.</div>}
       {(term.includes('$') || def.includes('$')) && (
         <div className="preview" dir="auto"><Rich text={term} /> <span className="muted">←</span> <Rich text={def} /></div>

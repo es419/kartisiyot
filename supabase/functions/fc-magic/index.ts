@@ -4,6 +4,40 @@
 // מפתח:  supabase secrets set ANTHROPIC_API_KEY=sk-ant-...
 // הפונקציה דורשת משתמש מחובר (verify_jwt ברירת מחדל), כך שרק משתמשים רשומים יכולים להפעיל אותה.
 
+// ---- access gate ----
+type Gate = { ok: true } | { ok: false; error: string }
+
+function decodePayload(token: string): Record<string, unknown> | null {
+  try {
+    const part = token.split('.')[1]
+    if (!part) return null
+    const b64 = part.replace(/-/g, '+').replace(/_/g, '/').padEnd(Math.ceil(part.length / 4) * 4, '=')
+    const bytes = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0))
+    return JSON.parse(new TextDecoder().decode(bytes))
+  } catch {
+    return null
+  }
+}
+
+/** allowedRaw: מיילים (או מזהי משתמש) מופרדים בפסיק, רווח או שורה חדשה. ריק = אין הגבלה */
+function checkAccess(authHeader: string | null, allowedRaw: string): Gate {
+  const allowed = allowedRaw
+    .split(/[\s,;]+/)
+    .map((s) => s.trim().toLowerCase())
+    .filter(Boolean)
+  if (allowed.length === 0) return { ok: true }
+
+  const denied: Gate = { ok: false, error: 'אין לך הרשאה להשתמש בתכונות ה-AI של האפליקציה הזאת.' }
+  const token = (authHeader ?? '').replace(/^Bearer\s+/i, '').trim()
+  const p = decodePayload(token)
+  if (!p || p.role !== 'authenticated') return denied
+
+  const email = typeof p.email === 'string' ? p.email.toLowerCase() : ''
+  const sub = typeof p.sub === 'string' ? p.sub.toLowerCase() : ''
+  return (email && allowed.includes(email)) || (sub && allowed.includes(sub)) ? { ok: true } : denied
+}
+// ---- end access gate ----
+
 const cors = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type'
@@ -19,8 +53,12 @@ type Block = Record<string, unknown>
 type Card = { term?: unknown; definition?: unknown }
 
 async function ask(model: string, system: string, content: Block[], maxTokens = 4000): Promise<string> {
-  const key = Deno.env.get('ANTHROPIC_API_KEY')
+  const key = (Deno.env.get('ANTHROPIC_API_KEY') ?? '').trim().replace(/^["']+|["']+$/g, '')
   if (!key) throw new Error('חסר ANTHROPIC_API_KEY בסודות של Supabase')
+  // כותרת HTTP יכולה להכיל רק ASCII. עברית, מרכאות חכמות או רווחים במפתח גורמים לכשל מוזר בדנו
+  if (!/^[\x21-\x7E]+$/.test(key)) {
+    throw new Error('המפתח ANTHROPIC_API_KEY ב-Supabase מכיל תווים לא תקינים (למשל עברית, מרכאות או רווחים). הגדר אותו מחדש עם המפתח עצמו בלבד.')
+  }
   const res = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
     headers: { 'content-type': 'application/json', 'x-api-key': key, 'anthropic-version': '2023-06-01' },
@@ -199,6 +237,10 @@ async function actSolve(b: { text?: unknown; image_base64?: unknown }) {
 Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: cors })
   try {
+    // רשימת מורשים (סוד ALLOWED_EMAILS). אם לא הוגדר, אין הגבלה
+    const gate = checkAccess(req.headers.get('Authorization'), Deno.env.get('ALLOWED_EMAILS') ?? '')
+    if (!gate.ok) return json({ error: gate.error }, 403)
+
     const body = await req.json()
     switch (body.action ?? 'cards') {
       case 'cards': return json(await actCards(body))

@@ -85,7 +85,7 @@ export async function copySet(id: string): Promise<SetRow> {
   if (cards.length) {
     must(
       await supabase.from('fc_cards').insert(
-        cards.map((c, i) => ({ set_id: created.id, term: c.term, definition: c.definition, alts: c.alts ?? '', image_url: c.image_url, position: i }))
+        cards.map((c, i) => ({ set_id: created.id, term: c.term, definition: c.definition, alts: c.alts ?? '', ...(c.grading ? { grading: c.grading } : {}), image_url: c.image_url, position: i }))
       ).select()
     )
   }
@@ -106,6 +106,20 @@ export const listCards = (setId: string) =>
 
 export async function insertCard(setId: string, position: number, term = '', definition = '') {
   return must(await supabase.from('fc_cards').insert({ set_id: setId, position, term, definition }).select().single()) as Card
+}
+
+/** מוסיף כרטיסייה בודדת בסוף סט (למשל שמירת פתרון מהפותר) */
+export async function addCardToSet(setId: string, f: { term: string; definition: string; image_url?: string | null }) {
+  const last = must(
+    await supabase.from('fc_cards').select('position').eq('set_id', setId).order('position', { ascending: false }).limit(1)
+  ) as { position: number }[]
+  return must(
+    await supabase
+      .from('fc_cards')
+      .insert({ set_id: setId, term: f.term, definition: f.definition, image_url: f.image_url ?? null, position: (last[0]?.position ?? -1) + 1 })
+      .select()
+      .single()
+  ) as Card
 }
 
 export async function insertCards(setId: string, pairs: { term: string; definition: string }[]) {
@@ -297,7 +311,7 @@ export async function duplicateCard(c: Card): Promise<Card> {
   return must(
     await supabase
       .from('fc_cards')
-      .insert({ set_id: c.set_id, term: c.term, definition: c.definition, alts: c.alts ?? '', image_url: c.image_url, position: (last[0]?.position ?? -1) + 1 })
+      .insert({ set_id: c.set_id, term: c.term, definition: c.definition, alts: c.alts ?? '', ...(c.grading ? { grading: c.grading } : {}), image_url: c.image_url, position: (last[0]?.position ?? -1) + 1 })
       .select()
       .single()
   ) as Card

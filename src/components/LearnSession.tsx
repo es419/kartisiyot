@@ -24,10 +24,10 @@ type Props = {
   grading?: Level | ((c: Card) => Level)
 }
 
-type Result = { ok: boolean; verdict: Verdict; given: string; prev?: Progress; ai?: boolean; aiFail?: string }
+type Result = { ok: boolean; verdict: Verdict; given: string; prev?: Progress; ai?: boolean; aiChecked?: boolean; aiFail?: string }
 
 export default function LearnSession({ cards, progress, mode, title, backTo, termLang = 'en-US', defLang = 'he-IL', grading = 'flexible' }: Props) {
-  const levelOf = (c: Card): Level => (typeof grading === 'function' ? grading(c) : grading)
+  const levelOf = (c: Card): Level => c.grading ?? (typeof grading === 'function' ? grading(c) : grading)
   const [dir, setDir] = useState<'td' | 'dt'>('td')
   const byId = useMemo(() => Object.fromEntries(cards.map((c) => [c.id, c])), [cards])
   const prog = useRef<Record<string, Progress>>({ ...progress })
@@ -87,10 +87,12 @@ export default function LearnSession({ cards, progress, mode, title, backTo, ter
     let verdict: Verdict = kind === 'mc' ? (given === expected ? 'yes' : 'no') : gradeWith(level, given, expected, dir === 'td' ? cur.alts : undefined)
     let ai = false
     let aiFail: string | undefined
+    let aiChecked = false
     if (verdict === 'no' && kind === 'write' && given.trim().length > 1 && level === 'smart') {
       setChecking(true)
       try {
         const [v] = await aiGrade([{ q: promptOf(cur), expected, given }])
+        aiChecked = true
         if (v && v !== 'no') { verdict = v; ai = true }
       } catch (e) { aiFail = aiFallbackText((e as Error).message) }
       setChecking(false)
@@ -100,7 +102,7 @@ export default function LearnSession({ cards, progress, mode, title, backTo, ter
     record(ok, prev)
     activity.add(ok)
     if (!ok) setStruggled((s) => new Set(s).add(cur.id))
-    setRes({ ok, verdict, given, prev, ai, aiFail })
+    setRes({ ok, verdict, given, prev, ai, aiChecked, aiFail })
   }
 
   function override() {
@@ -220,6 +222,7 @@ export default function LearnSession({ cards, progress, mode, title, backTo, ter
             {res.ok ? (res.ai ? 'נכון לפי המשמעות' : res.verdict === 'close' ? 'כמעט מדויק, נספר כנכון' : 'נכון') : 'לא נכון'}
             {(!res.ok || res.verdict === 'close' || res.ai) && <div className="answer-line" dir="auto">התשובה: <Rich text={ansOf(cur)} /></div>}
             {res.aiFail && <div className="small muted mt-s">{res.aiFail}</div>}
+            {res.aiChecked && !res.ai && <div className="small muted mt-s">ה-AI בדק גם את התשובה שלך ופסל אותה.</div>}
             <div className="row mt-s">
               <button className="btn primary grow" autoFocus onClick={next}>המשך</button>
               {!res.ok && kind === 'write' && res.given.trim() && <button className="btn" onClick={override}>צדקתי</button>}

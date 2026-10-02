@@ -32,6 +32,7 @@ create table if not exists fc_cards (
   definition text not null default '',
   image_url text,
   alts text not null default '',
+  grading text check (grading in ('exact', 'flexible', 'smart')),
   position int not null default 0,
   starred boolean not null default false,
   created_at timestamptz not null default now()

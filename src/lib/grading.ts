@@ -84,6 +84,9 @@ export function gradeWith(level: Level, given: string, expected: string, alts?: 
   return best
 }
 
+/** הרמה בפועל של כרטיסייה: אם הוגדרה לה רמה משלה היא קובעת, אחרת הרמה של הסט */
+export const cardLevel = (c: { grading?: Level | null }, setLevel: Level): Level => c.grading ?? setLevel
+
 export const LEVEL_LABELS: Record<Level, string> = {
   exact: 'מדויק: השוואת טקסט',
   flexible: 'גמיש: סדר מילים, אותיות שימוש וטעויות קטנות',

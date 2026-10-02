@@ -37,4 +37,8 @@ create policy "public diagrams readable" on fc_diagrams for select to anon, auth
 alter table fc_sets  add column if not exists grading text not null default 'flexible';
 alter table fc_cards add column if not exists alts text not null default '';
 
+-- ===== migration_v5.sql =====
+-- הרץ פעם אחת: רמת בדיקה לכל כרטיסייה (ריק = כמו הסט)
+alter table fc_cards add column if not exists grading text check (grading in ('exact', 'flexible', 'smart'));
+
 notify pgrst, 'reload schema';

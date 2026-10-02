@@ -133,16 +133,18 @@ function Game({ set, cards }: { set: SetRow; cards: Card[] }) {
     if (checking) return
     const typed = input
     const sorted = [...rocksRef.current].sort((a, b) => b.y - a.y)
-    let found = sorted.find((r) => gradeWith(level, typed, r.card.term, undefined) !== 'no')
-    if (!found && level === 'smart' && typed.trim().length > 1 && sorted.length) {
+    const lvl = (c: Card): Level => c.grading ?? level
+    let found = sorted.find((r) => gradeWith(lvl(r.card), typed, r.card.term, undefined) !== 'no')
+    const smart = sorted.filter((r) => lvl(r.card) === 'smart')
+    if (!found && smart.length && typed.trim().length > 1) {
       paused.current = true
       setChecking(true)
       try {
-        const items = sorted.map((r) => ({ q: r.card.definition, expected: r.card.term, given: typed }))
+        const items = smart.map((r) => ({ q: r.card.definition, expected: r.card.term, given: typed }))
         const timeout = new Promise<Verdict[]>((_, rej) => setTimeout(() => rej(new Error('timeout')), 6000))
         const v = await Promise.race([aiGrade(items), timeout])
         const i = v.findIndex((x) => x !== 'no')
-        if (i >= 0) found = sorted[i]
+        if (i >= 0) found = smart[i]
       } catch { /* נשארים עם הבדיקה הגמישה */ }
       paused.current = false
       setChecking(false)

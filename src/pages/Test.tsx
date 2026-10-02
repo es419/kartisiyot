@@ -63,6 +63,7 @@ function TestRun({ set, cards, progress }: { set: SetRow; cards: Card[]; progres
   const [outcome, setOutcome] = useState<Record<string, boolean>>({})
   const [checking, setChecking] = useState(false)
   const [aiNote, setAiNote] = useState<string | null>(null)
+  const [aiInfo, setAiInfo] = useState<string | null>(null)
   const level = set.grading ?? 'flexible'
   const activity = useActivity()
 
@@ -71,7 +72,7 @@ function TestRun({ set, cards, progress }: { set: SetRow; cards: Card[]; progres
 
   function start() {
     const b = build(cards, cfg)
-    setBuilt(b); setAnswers({}); setMatchAns({}); setOutcome({}); setAiNote(null); setPhase('taking')
+    setBuilt(b); setAnswers({}); setMatchAns({}); setOutcome({}); setAiNote(null); setAiInfo(null); setPhase('taking')
     window.scrollTo(0, 0)
   }
 
@@ -82,16 +83,17 @@ function TestRun({ set, cards, progress }: { set: SetRow; cards: Card[]; progres
       const a = answers[q.id] ?? ''
       if (q.kind === 'mc') out[q.id] = a === q.card.definition
       else if (q.kind === 'tf') out[q.id] = a !== '' && (a === 'true') === q.isTrue
-      else out[q.id] = gradeWith(level, a, q.card.definition, q.card.alts) !== 'no'
+      else out[q.id] = gradeWith(q.card.grading ?? level, a, q.card.definition, q.card.alts) !== 'no'
     }
     for (const c of built.matchCards) out[c.id] = matchAns[c.id] === c.definition
-    if (level === 'smart') {
-      const items = built.qs.filter((q) => q.kind === 'write' && !out[q.id] && (answers[q.id] ?? '').trim().length > 1)
+    {
+      const items = built.qs.filter((q) => q.kind === 'write' && (q.card.grading ?? level) === 'smart' && !out[q.id] && (answers[q.id] ?? '').trim().length > 1)
       if (items.length) {
         setChecking(true)
         try {
           const v = await aiGrade(items.map((q) => ({ q: q.card.term, expected: q.card.definition, given: answers[q.id] })))
           items.forEach((q, i) => { if (v[i] !== 'no') out[q.id] = true })
+          setAiInfo(`${items.length} תשובות נבדקו גם ב-AI, ${v.filter((x) => x !== 'no').length} מהן התקבלו.`)
         } catch (e) { setAiNote(aiFallbackText((e as Error).message)) }
         setChecking(false)
       }
@@ -148,6 +150,7 @@ function TestRun({ set, cards, progress }: { set: SetRow; cards: Card[]; progres
       )}
 
       {done && aiNote && <div className="error mt">{aiNote}</div>}
+      {done && aiInfo && <p className="small muted mt-s">{aiInfo}</p>}
       <div className="col mt">
         {built.qs.map((q, i) => {
           const ok = outcome[q.id]

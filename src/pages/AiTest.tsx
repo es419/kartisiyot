@@ -23,6 +23,7 @@ export default function AiTestPage() {
   const [err, setErr] = useState<string | null>(null)
   const [checking, setChecking] = useState(false)
   const [aiNote, setAiNote] = useState<string | null>(null)
+  const [aiInfo, setAiInfo] = useState<string | null>(null)
 
   if (loading && !data) return <div className="page study"><TopBar close={`/set/${id}`} /><Loading /></div>
   if (error && !data) return <div className="page study"><TopBar close={`/set/${id}`} /><ErrorBox msg={error} /></div>
@@ -50,6 +51,7 @@ export default function AiTestPage() {
 
   async function submit() {
     setAiNote(null)
+    setAiInfo(null)
     const out: Record<number, boolean> = {}
     const shorts: number[] = []
     qs.forEach((q, i) => {
@@ -65,6 +67,7 @@ export default function AiTestPage() {
       try {
         const v = await aiGrade(shorts.map((i) => ({ q: qs[i].q, expected: qs[i].answer, given: answers[i] })))
         shorts.forEach((i, k) => { if (v[k] !== 'no') out[i] = true })
+        setAiInfo(`${shorts.length} תשובות קצרות נבדקו גם ב-AI, ${v.filter((x) => x !== 'no').length} מהן התקבלו.`)
       } catch (e) { setAiNote(aiFallbackText((e as Error).message)) }
       setChecking(false)
     }
@@ -111,6 +114,7 @@ export default function AiTestPage() {
         </div>
       )}
       {done && aiNote && <div className="error mt">{aiNote}</div>}
+      {done && aiInfo && <p className="small muted mt-s">{aiInfo}</p>}
       <div className="col mt">
         {qs.map((q, i) => {
           const ok = outcome[i]
