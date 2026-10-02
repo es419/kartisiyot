@@ -449,3 +449,9 @@ details.qa[open] summary { margin-bottom: 8px; }
 
 details.alts summary { cursor: pointer; color: var(--link); font-size: 14px; font-weight: 600; list-style: none; }
 details.alts summary::-webkit-details-marker { display: none; }
+
+/* ===== התראת מקום ===== */
+.alert-bg { position: fixed; inset: 0; z-index: 90; background: rgba(70, 0, 0, .62); display: flex; align-items: center; justify-content: center; padding: 18px; animation: fade-in .2s; }
+.alert-card { width: 100%; max-width: 440px; background: var(--surface); border: 3px solid #D63B40; border-radius: var(--radius-lg); padding: 0 18px 18px; box-shadow: 0 24px 70px rgba(214, 59, 64, .45); overflow: hidden; }
+.alert-head { background: #D63B40; color: #fff; margin: 0 -18px 16px; padding: 14px 18px; font-family: var(--display); font-weight: 700; font-size: 20px; }
+.progress.red > i { background: #D63B40; }

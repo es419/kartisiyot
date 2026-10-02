@@ -1,14 +1,17 @@
-import { useState } from 'react'
-import { boxCounts, computeStreak, getActivity } from '../api'
+import { useEffect, useState } from 'react'
+import { boxCounts, computeStreak, getActivity, getUsage } from '../api'
 import { useLoad } from '../hooks'
 import { ErrorBox, Loading } from '../components/ui'
 import PageHeader from '../components/PageHeader'
 import { BOX_LABELS } from '../lib/srs'
 import { getGoal, setGoal } from '../lib/goal'
 import { todayStr } from '../lib/text'
+import { fmtMB, usageRows, type UsageRow } from '../lib/usage'
 
 export default function Stats() {
   const [goal, setGoalState] = useState(getGoal())
+  const [usage, setUsage] = useState<UsageRow[] | 'na' | null>(null)
+  useEffect(() => { getUsage().then((u) => setUsage(usageRows(u))).catch(() => setUsage('na')) }, [])
   const { data, error, loading } = useLoad(async () => {
     const [act, boxes] = await Promise.all([getActivity(120), boxCounts()])
     return { act, boxes }
@@ -90,6 +93,25 @@ export default function Stats() {
           <div key={i}><b>{n}</b><span>{BOX_LABELS[i]}</span></div>
         ))}
       </div>
+      <h2 className="mt">שטח אחסון</h2>
+      <div className="entry mt-s">
+        {usage === null && <span className="muted small">בודק…</span>}
+        {usage === 'na' && <span className="muted small">לא זמין. הרץ את migration_v6.sql ב-Supabase כדי להפעיל.</span>}
+        {Array.isArray(usage) && (
+          <div className="col">
+            {usage.map((r) => (
+              <div key={r.kind}>
+                <div className="row spread small">
+                  <b>{r.label}</b>
+                  <span dir="ltr">{fmtMB(r.used)} / {fmtMB(r.limit)}</span>
+                </div>
+                <div className={'progress mt-s' + (r.level !== 'ok' ? ' red' : '')}><i style={{ width: `${Math.max(1, Math.min(100, r.pct * 100))}%` }} /></div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
       <p className="muted small mt-s">הרמה נקבעת לפי כמה זמן הכרטיסייה צפויה להישאר בזיכרון. תשובה נכונה מרחיקה את החזרה הבאה, וטעות מחזירה אותה להתחלה.</p>
     </div>
   )

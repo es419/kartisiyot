@@ -403,3 +403,8 @@ export async function updateDiagram(id: string, patch: { title?: string; points?
 export async function deleteDiagram(id: string) {
   must(await supabase.from('fc_diagrams').delete().eq('id', id).select())
 }
+
+// ---------- מקום בשימוש ----------
+export async function getUsage(): Promise<{ db_bytes: number; files_bytes: number }> {
+  return must(await supabase.rpc('fc_usage')) as { db_bytes: number; files_bytes: number }
+}

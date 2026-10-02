@@ -26,12 +26,18 @@ import Solve from './pages/Solve'
 import LiveHost from './pages/LiveHost'
 import LivePlay from './pages/LivePlay'
 import { Splash } from './components/Logo'
+import StorageAlert from './components/StorageAlert'
 
 function Protected() {
   const { session, loading } = useAuth()
   if (loading) return <Splash />
   if (!session) return <AuthPage />
-  return <Outlet />
+  return (
+    <>
+      <StorageAlert />
+      <Outlet />
+    </>
+  )
 }
 
 function Layout() {
