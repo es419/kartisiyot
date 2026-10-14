@@ -10,17 +10,21 @@ function must<T>(res: { data: T | null; error: { message: string } | null }): T 
 
 /** קריאה עם גיבוי מקומי: אם אין רשת מחזירים את הנתונים האחרונים ששמרנו */
 async function cached<T>(key: string, fn: () => Promise<T>): Promise<T> {
+  const uid = await userId()
+  const storageKey = 'fc:' + uid + ':' + key
   try {
     const v = await fn()
     try {
-      localStorage.setItem('fc:' + key, JSON.stringify(v))
+      localStorage.setItem(storageKey, JSON.stringify(v))
     } catch {
       /* מלא */
     }
     return v
   } catch (e) {
-    const raw = localStorage.getItem('fc:' + key)
-    if (raw) return JSON.parse(raw) as T
+    try {
+      const raw = localStorage.getItem(storageKey)
+      if (raw) return JSON.parse(raw) as T
+    } catch { /* Preserve the original request error when storage is unavailable or corrupt. */ }
     throw e
   }
 }
@@ -91,9 +95,9 @@ export async function copySet(id: string): Promise<SetRow> {
   }
   const dgs = await supabase.from('fc_diagrams').select('*').eq('set_id', id)
   if (!dgs.error && dgs.data?.length) {
-    await supabase.from('fc_diagrams').insert(
+    must(await supabase.from('fc_diagrams').insert(
       (dgs.data as Diagram[]).map((d) => ({ set_id: created.id, title: d.title, image_url: d.image_url, points: d.points }))
-    )
+    ))
   }
   return created
 }
@@ -247,11 +251,18 @@ export const listEntries = () =>
     ) as Entry[]
   })
 
-export async function createEntry(e: Pick<Entry, 'type' | 'title' | 'body' | 'tag'>) {
-  return must(await supabase.from('fc_entries').insert(e).select().single()) as Entry
+export async function createEntry(e: Pick<Entry, 'type' | 'title' | 'body' | 'tag'>, id: string = crypto.randomUUID()) {
+  const uid = await userId()
+  const result = await supabase.from('fc_entries').insert({ ...e, id, user_id: uid }).select().single()
+  if (!result.error) return result.data as Entry
+  // A lost response can follow a committed insert. Recover by the same ID;
+  // retries from the editor keep that ID so they cannot create a second entry.
+  const existing = await supabase.from('fc_entries').select('*').eq('id', id).eq('user_id', uid).maybeSingle()
+  if (!existing.error && existing.data) return existing.data as Entry
+  throw new Error(result.error.message)
 }
 export async function updateEntry(id: string, patch: Partial<Entry>) {
-  must(await supabase.from('fc_entries').update(patch).eq('id', id).select())
+  return must(await supabase.from('fc_entries').update(patch).eq('id', id).select().single()) as Entry
 }
 export async function deleteEntry(id: string) {
   must(await supabase.from('fc_entries').delete().eq('id', id).select())
@@ -322,7 +333,7 @@ export async function moveCard(cardId: string, toSetId: string) {
     await supabase.from('fc_cards').select('position').eq('set_id', toSetId).order('position', { ascending: false }).limit(1)
   ) as { position: number }[]
   must(await supabase.from('fc_cards').update({ set_id: toSetId, position: (last[0]?.position ?? -1) + 1 }).eq('id', cardId).select())
-  await supabase.from('fc_progress').update({ set_id: toSetId }).eq('card_id', cardId)
+  must(await supabase.from('fc_progress').update({ set_id: toSetId }).eq('card_id', cardId))
 }
 
 // ---------- AI (Edge Function אחת: fc-magic) ----------

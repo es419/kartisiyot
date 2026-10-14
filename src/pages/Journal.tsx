@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { convertEntryToCard, createEntry, deleteEntry, ensureJournalSet, listEntries, listSets, updateEntry } from '../api'
 import { useLoad } from '../hooks'
 import { ErrorBox, Loading, Modal, useToast } from '../components/ui'
@@ -14,7 +14,7 @@ const TYPES: { id: EntryType; label: string; hint: string }[] = [
 ]
 const typeLabel = (t: EntryType) => TYPES.find((x) => x.id === t)?.label ?? t
 
-type Draft = { id?: string; type: EntryType; title: string; body: string; tag: string }
+type Draft = { id?: string; newId?: string; type: EntryType; title: string; body: string; tag: string }
 const empty: Draft = { type: 'concept', title: '', body: '', tag: '' }
 
 export default function Journal() {
@@ -27,8 +27,11 @@ export default function Journal() {
   const [cardFor, setCardFor] = useState<Entry | null>(null)
   const [weekly, setWeekly] = useState(false)
   const [err, setErr] = useState<string | null>(null)
+  const [saveError, setSaveError] = useState<string | null>(null)
+  const [saving, setSaving] = useState(false)
+  const savingRef = useRef(false)
 
-  const { data, error, loading, reload } = useLoad(async () => {
+  const { data, error, loading, reload, setData } = useLoad(async () => {
     const [entries, sets] = await Promise.all([listEntries(), listSets()])
     return { entries, sets }
   }, [])
@@ -60,15 +63,27 @@ export default function Journal() {
   const openQuestions = (data?.entries ?? []).filter((e) => e.type === 'question' && !e.resolved)
 
   async function save() {
-    if (!draft || !draft.title.trim()) return
+    if (!draft || !draft.title.trim() || savingRef.current) return
+    savingRef.current = true
+    setSaving(true)
+    setSaveError(null)
+    setErr(null)
     try {
       const payload = { type: draft.type, title: draft.title.trim(), body: draft.body.trim(), tag: draft.tag.trim() }
-      if (draft.id) await updateEntry(draft.id, payload)
-      else await createEntry(payload)
+      if (draft.id) {
+        const entry = await updateEntry(draft.id, payload)
+        setData((current) => current ? { ...current, entries: current.entries.map((e) => e.id === draft.id ? entry : e) } : current)
+      } else {
+        const entry = await createEntry(payload, draft.newId)
+        setData((current) => current ? { ...current, entries: [entry, ...current.entries.filter((e) => e.id !== entry.id)] } : current)
+      }
       setDraft(null)
-      reload()
+      toast.show('הרשומה נשמרה')
     } catch (e) {
-      setErr((e as Error).message)
+      setSaveError(`${(e as Error).message}. אם החיבור נקטע, ייתכן שהרשומה נשמרה. אפשר לנסות שוב בלי ליצור רשומה כפולה.`)
+    } finally {
+      savingRef.current = false
+      setSaving(false)
     }
   }
 
@@ -110,7 +125,7 @@ export default function Journal() {
   return (
     <div className="page">
       <PageHeader title="יומן למידה">
-        <button className="btn primary" onClick={() => setDraft(empty)}>＋ רשומה</button>
+        <button className="btn primary" onClick={() => { setSaveError(null); setDraft({ ...empty, newId: crypto.randomUUID() }) }}>＋ רשומה</button>
       </PageHeader>
       {err && <div className="error mt-s">{err}</div>}
 
@@ -154,9 +169,9 @@ export default function Journal() {
               <>
                 {e.body && <div className="body" dir="auto">{e.body}</div>}
                 <div className="row wrap mt">
-                  {e.type === 'question' && <button className="btn sm" onClick={() => updateEntry(e.id, { resolved: !e.resolved }).then(reload)}>{e.resolved ? 'פתח מחדש' : '✓ נפתרה'}</button>}
+                  {e.type === 'question' && <button className="btn sm" onClick={() => updateEntry(e.id, { resolved: !e.resolved }).then(reload).catch((x: Error) => setErr(x.message))}>{e.resolved ? 'פתח מחדש' : '✓ נפתרה'}</button>}
                   {!e.card_id && e.body.trim() && <button className="btn sm" onClick={() => setCardFor(e)}>הפוך לכרטיסייה</button>}
-                  <button className="btn sm" onClick={() => setDraft({ id: e.id, type: e.type, title: e.title, body: e.body, tag: e.tag })}>עריכה</button>
+                  <button className="btn sm" onClick={() => { setSaveError(null); setDraft({ id: e.id, type: e.type, title: e.title, body: e.body, tag: e.tag }) }}>עריכה</button>
                   <button className="btn danger sm" onClick={() => remove(e)}>מחק</button>
                 </div>
               </>
@@ -169,7 +184,7 @@ export default function Journal() {
       </div>
 
       {draft && (
-        <Modal onClose={() => setDraft(null)}>
+        <Modal onClose={() => { if (!savingRef.current) setDraft(null) }}>
           <div className="col">
             <h2>{draft.id ? 'עריכת רשומה' : 'רשומה חדשה'}</h2>
             <div className="row wrap">
@@ -180,7 +195,8 @@ export default function Journal() {
             <input className="input" list="tags" placeholder="תגית (למשל קורס או נושא)" value={draft.tag} onChange={(e) => setDraft({ ...draft, tag: e.target.value.replace(/^#/, '') })} />
             <datalist id="tags">{tags.map((t) => <option key={t} value={t} />)}</datalist>
             <p className="muted small">אל תכתוב כאן פרטי נישומים, מספרי תיק או מידע פנימי רגיש. רשום מה למדת, לא על מי.</p>
-            <button className="btn primary" onClick={save} disabled={!draft.title.trim()}>שמור</button>
+            {saveError && <div className="error" role="alert">{saveError}</div>}
+            <button className="btn primary" onClick={save} disabled={saving || !draft.title.trim()}>{saving ? 'שומר…' : 'שמור'}</button>
           </div>
         </Modal>
       )}

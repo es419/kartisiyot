@@ -102,8 +102,12 @@ function Editor({ setId, did }: { setId: string; did: string }) {
 
   async function removeAll() {
     if (!confirm('למחוק את התרשים?')) return
-    await deleteDiagram(did).catch((e: Error) => setErr(e.message))
-    nav(`/set/${setId}`, { replace: true })
+    try {
+      await deleteDiagram(did)
+      nav(`/set/${setId}`, { replace: true })
+    } catch (e) {
+      setErr((e as Error).message)
+    }
   }
 
   const labeled = points.filter((p) => p.label).length
